@@ -290,9 +290,13 @@ def test_api_mail_status_and_test_button(app, transport):
     assert 'password' not in str(st).lower()
     assert olivia.post('/api/mail/test').status_code == 200
     assert 'test email' in transport.sent[-1]['Subject'].lower()
+    log = olivia.get('/api/mail').json()['recent']
+    assert log[0]['ok'] is True and log[0]['kind'] == 'test' and log[0]['to'] == 'olivia@acme.test'
     transport.fail_with = 'The mail server rejected the username or password.'
     r = olivia.post('/api/mail/test')
     assert r.status_code == 400 and 'rejected the username' in r.json()['error']['message']
+    failed = olivia.get('/api/mail').json()['recent'][0]
+    assert failed['ok'] is False and 'rejected the username' in failed['error']
     for _ in range(3):
         olivia.post('/api/mail/test')
     assert olivia.post('/api/mail/test').status_code == 429

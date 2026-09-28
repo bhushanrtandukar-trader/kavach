@@ -559,6 +559,10 @@ class Accounts:
             rows = audit.query(c, 'mail.', '', limit, 0)
         out = []
         for r in rows:
+            if r['action'] in ('mail.test', 'mail.test_failed'):      # the administrator's own test button
+                out.append({'ts': r['ts'], 'ok': r['action'] == 'mail.test', 'kind': 'test', 'to': r['target'],
+                            'error': r['detail']})
+                continue
             kind, _, error = r['detail'].partition(': ')
             out.append({'ts': r['ts'], 'ok': r['action'] == 'mail.sent', 'kind': kind, 'to': r['target'],
                         'error': error})

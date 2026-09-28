@@ -168,6 +168,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Email
+         * @description Where security emails go.  Needs the master password; the old address is told about the change.
+         */
+        put: operations["set_email_api_me_email_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mfa/begin": {
         parameters: {
             query?: never;
@@ -668,6 +688,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mail Status
+         * @description Is outgoing email set up (it is configured through environment variables), and how did recent mail go?
+         */
+        get: operations["mail_status_api_mail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mail/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mail Test */
+        post: operations["mail_test_api_mail_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vaults-overview": {
         parameters: {
             query?: never;
@@ -830,6 +887,16 @@ export interface components {
             display_name: string;
             /** Role */
             role: string;
+        };
+        /** EmailIn */
+        EmailIn: {
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+            /** Password */
+            password: string;
         };
         /** EntryCreated */
         EntryCreated: {
@@ -1135,6 +1202,11 @@ export interface components {
             email: string;
             /** Role */
             role: string;
+            /**
+             * Send Email
+             * @default true
+             */
+            send_email: boolean;
         };
         /** InviteOut */
         InviteOut: {
@@ -1146,6 +1218,11 @@ export interface components {
             invite_code: string;
             /** Valid Hours */
             valid_hours: number;
+            /**
+             * Emailed
+             * @default false
+             */
+            emailed: boolean;
         };
         /** LoginIn */
         LoginIn: {
@@ -1155,6 +1232,39 @@ export interface components {
             password: string;
             /** Totp Code */
             totp_code?: string | null;
+        };
+        /** MailEvent */
+        MailEvent: {
+            /** Ts */
+            ts: number;
+            /** Ok */
+            ok: boolean;
+            /** Kind */
+            kind: string;
+            /** To */
+            to: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
+        /** MailStatus */
+        MailStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** Security */
+            security: string;
+            /** Sender */
+            sender: string;
+            /** Public Url */
+            public_url: string;
+            /** Recent */
+            recent: components["schemas"]["MailEvent"][];
         };
         /** Me */
         Me: {
@@ -1272,6 +1382,10 @@ export interface components {
             invite_ttl_hours: number;
             /** Breach Check */
             breach_check: number;
+            /** Email Alerts */
+            email_alerts: number;
+            /** Email Digest */
+            email_digest: number;
         };
         /** PolicyIn */
         PolicyIn: {
@@ -1287,6 +1401,10 @@ export interface components {
             invite_ttl_hours?: number | null;
             /** Breach Check */
             breach_check?: number | null;
+            /** Email Alerts */
+            email_alerts?: number | null;
+            /** Email Digest */
+            email_digest?: number | null;
         };
         /** RevealAll */
         RevealAll: {
@@ -1756,6 +1874,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    set_email_api_me_email_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2863,6 +3014,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mail_status_api_mail_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailStatus"];
+                };
+            };
+        };
+    };
+    mail_test_api_mail_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
         };

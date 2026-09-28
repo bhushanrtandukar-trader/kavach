@@ -150,9 +150,10 @@ const activateSchema = z
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "The passwords don't match" });
 
-function Activate({ onDone, onSwitch }: { onDone: (username: string) => void; onSwitch: () => void }) {
+function Activate({ onDone, onSwitch, initial }: { onDone: (username: string) => void; onSwitch: () => void; initial?: { username: string; invite_code: string } }) {
   const { register, handleSubmit, watch, formState } = useForm<z.infer<typeof activateSchema>>({
     resolver: zodResolver(activateSchema),
+    defaultValues: initial,
   });
   const [error, setError] = useState<string | null>(null);
   const pw = watch("password") ?? "";
@@ -271,6 +272,17 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [prefill, setPrefill] = useState("");
+  const [invite, setInvite] = useState<{ username: string; invite_code: string } | undefined>();
+
+  // The invite email links to /login#activate=<username>:<code>. The fragment never reaches the server; we
+  // read it once, fill in the form, and remove it from the address bar and history.
+  useEffect(() => {
+    const m = /^#activate=([a-z0-9._-]{3,32}):([A-Za-z0-9_-]{10,128})$/i.exec(window.location.hash);
+    if (!m) return;
+    setInvite({ username: m[1]!.toLowerCase(), invite_code: m[2]! });
+    setMode("activate");
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, []);
 
   useEffect(() => {
     if (status.data?.me) router.replace("/vaults");
@@ -365,6 +377,7 @@ export default function LoginPage() {
                   <SignIn initialUsername={prefill} onBusy={setBusy} onSuccess={enter} onSwitch={() => setMode("activate")} />
                 ) : mode === "activate" ? (
                   <Activate
+                    initial={invite}
                     onSwitch={() => setMode("signin")}
                     onDone={(u) => {
                       setPrefill(u);

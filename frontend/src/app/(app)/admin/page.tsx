@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { InviteCard, InviteDialog } from "@/components/admin/invite-dialog";
+import { MailPanel } from "@/components/admin/mail-panel";
 import { PageHeader } from "@/components/page-header";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
@@ -248,7 +249,7 @@ function VaultsOverview() {
 }
 
 // ───────────────────────── policy ─────────────────────────
-const POLICY_FIELDS: { key: keyof Omit<Policy, "breach_check">; label: string; hint: string; min: number; max: number; unit: string }[] = [
+const POLICY_FIELDS: { key: keyof Omit<Policy, "breach_check" | "email_alerts" | "email_digest">; label: string; hint: string; min: number; max: number; unit: string }[] = [
   { key: "min_password_length", label: "Minimum password length", hint: "Applies to new and changed master passwords.", min: 8, max: 128, unit: "characters" },
   { key: "idle_timeout_secs", label: "Sign out after inactivity", hint: "Also enforced by the server.", min: 60, max: 86400, unit: "seconds" },
   { key: "max_attempts", label: "Failed sign-ins before lockout", hint: "Counted per account.", min: 3, max: 20, unit: "attempts" },
@@ -256,7 +257,7 @@ const POLICY_FIELDS: { key: keyof Omit<Policy, "breach_check">; label: string; h
   { key: "invite_ttl_hours", label: "Invite validity", hint: "How long an invite code works.", min: 1, max: 720, unit: "hours" },
 ];
 
-function PolicyForm() {
+function PolicyForm({ hasEmail }: { hasEmail: boolean }) {
   const qc = useQueryClient();
   const policy = useQuery({ queryKey: ["policy"], queryFn: api.policy });
   const [draft, setDraft] = useState<Partial<Record<keyof Policy, number>>>({});
@@ -276,6 +277,7 @@ function PolicyForm() {
 
   if (policy.isLoading || !policy.data) return <Skeleton className="h-96" />;
   return (
+    <div className="space-y-5">
     <div className="glass rounded-3xl p-6">
       <div className="grid gap-5 sm:grid-cols-2">
         {POLICY_FIELDS.map((f) => (
@@ -292,11 +294,31 @@ function PolicyForm() {
           </div>
           <Switch checked={value("breach_check") === 1} onCheckedChange={(c) => setDraft((d) => ({ ...d, breach_check: c ? 1 : 0 }))} />
         </div>
+        <div className="flex items-start justify-between gap-4 rounded-2xl border p-4 sm:col-span-2">
+          <div>
+            <div className="font-medium">Email security alerts</div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Tells people by email when their own account has a sign-in from a new address, a lockout, or a change to their password, two-factor or email. Needs email delivery and an address on the account.
+            </p>
+          </div>
+          <Switch checked={value("email_alerts") === 1} onCheckedChange={(c) => setDraft((d) => ({ ...d, email_alerts: c ? 1 : 0 }))} />
+        </div>
+        <div className="flex items-start justify-between gap-4 rounded-2xl border p-4 sm:col-span-2">
+          <div>
+            <div className="font-medium">Weekly security digest</div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Emails owners and administrators a summary of unusual activity in the audit log, pending invites and who has no two-factor. Built from the audit log only; it never touches a vault.
+            </p>
+          </div>
+          <Switch checked={value("email_digest") === 1} onCheckedChange={(c) => setDraft((d) => ({ ...d, email_digest: c ? 1 : 0 }))} />
+        </div>
       </div>
       <div className="mt-6 flex justify-end gap-2">
         {dirty && <Button variant="ghost" onClick={() => setDraft({})}>Discard</Button>}
         <Button disabled={!dirty} loading={save.isPending} onClick={() => save.mutate()}>Save policy</Button>
       </div>
+    </div>
+    <MailPanel hasEmail={hasEmail} />
     </div>
   );
 }
@@ -326,7 +348,7 @@ export default function AdminPage() {
       />
       {tab === "people" && <People meId={me.id} myRole={me.role as OrgRole} orgName={status.data?.org_name ?? ""} />}
       {tab === "vaults" && <VaultsOverview />}
-      {tab === "policy" && <PolicyForm />}
+      {tab === "policy" && <PolicyForm hasEmail={me.email !== ""} />}
     </div>
   );
 }

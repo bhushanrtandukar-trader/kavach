@@ -1,12 +1,13 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Mail, Send, User, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/controls";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/menu";
 import { api, ApiError, type Invite, type OrgRole } from "@/lib/api";
 import { copyPlain } from "@/lib/utils";
@@ -44,8 +45,13 @@ export function InviteCard({ invite, orgName }: { invite: Invite; orgName: strin
           </Button>
         </div>
       </div>
+      {invite.emailed && (
+        <p className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/8 px-3 py-2 text-sm text-success">
+          <Mail className="size-4 shrink-0" /> Emailed to them, with a link that fills in the sign-up form.
+        </p>
+      )}
       <p className="text-sm text-muted-foreground">
-        This is the only time the code is shown. Send it privately. It works once and is valid for {invite.valid_hours} hours.
+        This is the only time the code is shown here. {invite.emailed ? "You don't need to send it yourself, but you can." : "Send it privately."} It works once and is valid for {invite.valid_hours} hours.
       </p>
       <Button variant="outline" className="w-full" onClick={() => void copy("msg")}>
         {copied === "msg" ? <Check className="text-success" /> : <Send />} Copy a ready-to-send message
@@ -62,9 +68,13 @@ export function InviteDialog({ open, onOpenChange, assignable, orgName }: { open
   const [role, setRole] = useState<OrgRole>("member");
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<Invite | null>(null);
+  const [sendEmail, setSendEmail] = useState(true);
+  const mail = useQuery({ queryKey: ["mail"], queryFn: api.mail, enabled: open });
+  const mailReady = mail.data?.configured === true;
 
   useEffect(() => {
     if (open) {
+      setSendEmail(true);
       setUsername("");
       setDisplay("");
       setEmail("");
@@ -75,7 +85,7 @@ export function InviteDialog({ open, onOpenChange, assignable, orgName }: { open
   }, [open]);
 
   const create = useMutation({
-    mutationFn: () => api.invite({ username, display_name: display, email, role }),
+    mutationFn: () => api.invite({ username, display_name: display, email, role, send_email: sendEmail && mailReady }),
     onSuccess: async (r) => {
       setInvite(r);
       toast.success(`Invite created for @${r.username}`);
@@ -121,9 +131,21 @@ export function InviteDialog({ open, onOpenChange, assignable, orgName }: { open
                 <Input value={display} onChange={(e) => setDisplay(e.target.value)} placeholder="Mia Member" />
               </Field>
             </div>
-            <Field label="Email (optional)" hint="Only for your own records; Kavach doesn't send email.">
+            <Field
+              label="Email (optional)"
+              hint={mailReady ? "Security alerts for their account go here too." : "Email isn't set up on this server, so you'll pass the code on yourself."}
+            >
               <Input icon={<Mail />} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            {mailReady && (
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-sm">
+                <span>
+                  <span className="font-medium">Email them the invite</span>
+                  <span className="block text-xs text-muted-foreground">Sends the code and a sign-up link{email ? ` to ${email}` : ""}.</span>
+                </span>
+                <Switch checked={sendEmail && email.trim() !== ""} disabled={email.trim() === ""} onCheckedChange={setSendEmail} />
+              </label>
+            )}
             <Field label="Role" hint={ROLE_HELP[role]}>
               <Select value={role} onValueChange={(v) => setRole(v as OrgRole)}>
                 <SelectTrigger>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, KeyRound, ShieldCheck, ShieldOff, Smartphone } from "lucide-react";
+import { Check, Copy, KeyRound, Mail, ShieldCheck, ShieldOff, Smartphone } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { StrengthMeter } from "@/components/strength-meter";
@@ -15,6 +15,54 @@ import { useStatus } from "@/lib/hooks";
 import { copyPlain, formatDateTime, gradientFor, initials } from "@/lib/utils";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : "Something went wrong.");
+
+function EmailAddress({ email }: { email: string }) {
+  const qc = useQueryClient();
+  const [value, setValue] = useState(email);
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setValue(email), [email]);
+
+  const save = useMutation({
+    mutationFn: () => api.setEmail(value.trim(), pw),
+    onSuccess: async () => {
+      toast.success("Email saved", { description: email ? "We told the old address about the change." : undefined });
+      setPw("");
+      setError(null);
+      await qc.invalidateQueries({ queryKey: ["status"] });
+    },
+    onError: (e) => setError(errText(e)),
+  });
+
+  const changed = value.trim() !== email;
+  return (
+    <form
+      className="glass space-y-4 rounded-3xl p-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        save.mutate();
+      }}
+    >
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Email</h2>
+        <p className="text-sm text-muted-foreground">Where Kavach sends security alerts about your account, such as a sign-in from a new address. Changing it needs your master password, and the old address is told.</p>
+      </div>
+      {error && <p role="alert" className="rounded-xl border border-danger/25 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Email address">
+          <Input icon={<Mail />} type="email" autoComplete="email" value={value} onChange={(e) => setValue(e.target.value)} placeholder="you@example.com" />
+        </Field>
+        <Field label="Master password" hint="To confirm it is you.">
+          <PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        </Field>
+      </div>
+      <Button type="submit" loading={save.isPending} disabled={!changed || !pw}>
+        Save email
+      </Button>
+    </form>
+  );
+}
 
 function ChangePassword({ username, name }: { username: string; name: string }) {
   const [oldPw, setOld] = useState("");
@@ -174,6 +222,7 @@ export default function AccountPage() {
           <dd className="font-medium">{formatDateTime(me.last_login)}</dd>
         </dl>
       </div>
+      <EmailAddress email={me.email} />
       <TwoFactor enabled={me.totp_enabled} />
       <ChangePassword username={me.username} name={me.display_name} />
     </div>

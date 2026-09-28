@@ -22,6 +22,9 @@ app the same server serves.
   disabling their account replaces the vault key.
 - **Invite-only onboarding** — an admin issues a one-time invite code; the new user chooses their own
   master password, so nobody else ever knows it.
+- **Email delivery** — invite codes with a one-click sign-up link, security alerts to the person (sign-in from a
+  new address, lockout, password / two-factor / email changes) and a weekly summary for admins. Optional, over
+  your own SMTP server. See [Email](#email).
 - **Two-factor authentication** — standard authenticator apps (TOTP, RFC 6238) with QR enrolment, replay
   protection and admin reset for lost phones.
 - **Audit log** — sign-ins, failures, lockouts, membership changes, and every password reveal/copy, in a
@@ -88,6 +91,45 @@ The dev server runs on **3100** (not 3000) so it never clashes with other Next.j
 | `KAVACH_COOKIE_SECURE` | Force the `Secure` flag on the session cookie | auto (on for HTTPS) |
 | `KAVACH_ALLOWED_ORIGINS` | Extra origins allowed to call the API (comma-separated) | none |
 | `KAVACH_DEV` | Dev mode: allow `localhost:3100`, serve `/api/docs` | off |
+| `KAVACH_SMTP_HOST` / `KAVACH_SMTP_PORT` | Outgoing mail server (see [Email](#email)) | off / `587` |
+| `KAVACH_SMTP_SECURITY` | `starttls`, `ssl` or `none` | `starttls` |
+| `KAVACH_SMTP_USER` / `KAVACH_SMTP_PASSWORD` | Mail server login, if it needs one | none |
+| `KAVACH_MAIL_FROM` | The From address, e.g. `Kavach <kavach@example.com>` | none |
+| `KAVACH_PUBLIC_URL` | Address people use to reach Kavach; used for links in emails | `http://HOST:PORT` |
+
+## Email
+
+Email is off until you give Kavach an SMTP server. Set `KAVACH_SMTP_HOST` and `KAVACH_MAIL_FROM` (plus
+`KAVACH_SMTP_USER` / `KAVACH_SMTP_PASSWORD` if the server needs a login) and restart. The credentials live only
+in the environment, never in the database or the API. Then open **People & policy → Security policy**, where the
+*Email delivery* panel shows the settings, sends you a test message (with the server's real error if it fails)
+and lists recent deliveries.
+
+```powershell
+$env:KAVACH_SMTP_HOST = 'smtp.example.com'
+$env:KAVACH_MAIL_FROM = 'Kavach <kavach@example.com>'
+$env:KAVACH_SMTP_USER = 'kavach@example.com'
+$env:KAVACH_SMTP_PASSWORD = '...'
+$env:KAVACH_PUBLIC_URL = 'https://kavach.example.com'
+.\scripts\start.ps1
+```
+
+| Email | To | When |
+|---|---|---|
+| Invite | the invitee | an admin invites, re-issues an invite or resets access (untick "Email them the invite" to hand the code over yourself) |
+| Sign-in from a new address | the person | they have signed in before, but never from this address |
+| Lockout, password changed, two-factor on/off/reset, email changed | the person | it happens (the old address is told about an email change) |
+| Weekly summary | owners and admins | once a week: anomalies in the audit log, pending invites, who has no two-factor, audit-chain health |
+
+Alerts and the summary each have a switch in the security policy. The alerts contain **no links** (so a real one
+cannot be mistaken for a phishing "click to secure your account"), and no email ever contains a password or vault
+data. The one secret is the invite code: it works once and expires, but anyone who can read that mailbox
+before the invitee can activate the account, so use the hand-over option for sensitive accounts.
+
+Sending never blocks or fails an action: messages go through a background queue with retries, and every
+outcome (`mail.sent` / `mail.failed`) is written to the audit log. The weekly summary is built from the audit log
+and people list only, so it works while nobody is signed in and never touches a vault. Where alerts go is the
+address on each account; people change theirs on the Account page (needs the master password).
 
 ## How the intelligence works
 
@@ -206,7 +248,10 @@ afterwards.
 
 - Sessions live in server memory: restarting the server signs everyone out, and a multi-process deployment
   needs sticky sessions or a single worker.
-- No email delivery: invite codes are shown once to the admin, who passes them on.
+- Email is one-way and unverified: Kavach does not check that an address belongs to the person, and there is
+  no "forgot password" email (a master password cannot be recovered by design).
+- The per-user security digest (your own score by email) is not offered: scoring needs your vault unlocked, and
+  Kavach only holds keys while you are signed in.
 - Two-factor is opt-in per user; there is no organisation-wide "require 2FA" setting yet.
 - No password sharing links, attachments or browser extension yet.
 

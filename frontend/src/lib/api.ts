@@ -27,6 +27,8 @@ export type DirectoryUser = S["DirectoryUser"];
 export type Invite = S["InviteOut"];
 export type Policy = S["Policy"];
 export type PolicyInput = S["PolicyIn"];
+export type MailStatus = S["MailStatus"];
+export type MailEvent = S["MailEvent"];
 export type OverviewVault = S["OverviewVault"];
 export type AuditRow = S["AuditRow"];
 export type AuditVerify = S["AuditVerify"];
@@ -104,6 +106,7 @@ export const api = {
     post<Me>("/auth/setup", b),
   login: (b: { username: string; password: string; totp_code?: string }) => post<Me>("/auth/login", b),
   activate: (b: { username: string; invite_code: string; password: string }) => post<{ ok: boolean }>("/auth/activate", b),
+  setEmail: (email: string, password: string) => put<Me>("/me/email", { email, password }),
   logout: () => post<{ ok: boolean }>("/auth/logout"),
   ping: (idle_seconds: number) => post<{ ok: boolean }>("/auth/ping", { idle_seconds }),
   changePassword: (old_password: string, new_password: string) =>
@@ -155,7 +158,7 @@ export const api = {
 
   // admin
   users: () => get<UserRow[]>("/users"),
-  invite: (b: { username: string; display_name: string; email: string; role: OrgRole }) => post<Invite>("/users", b),
+  invite: (b: { username: string; display_name: string; email: string; role: OrgRole; send_email?: boolean }) => post<Invite>("/users", b),
   setRole: (id: string, role: OrgRole) => patch<{ ok: boolean }>(`/users/${id}/role`, { role }),
   disableUser: (id: string) => post<{ ok: boolean }>(`/users/${id}/disable`),
   enableUser: (id: string) => post<{ ok: boolean }>(`/users/${id}/enable`),
@@ -165,6 +168,8 @@ export const api = {
   policy: () => get<Policy>("/policy"),
   setPolicy: (p: PolicyInput) => put<Policy>("/policy", p),
   overview: () => get<OverviewVault[]>("/vaults-overview"),
+  mail: () => get<MailStatus>("/mail"),
+  testMail: () => post<{ ok: boolean }>("/mail/test"),
 
   // audit
   audit: (prefix: string, actor: string, limit = 300) => get<AuditRow[]>(`/audit${qs({ prefix, actor, limit })}`),
