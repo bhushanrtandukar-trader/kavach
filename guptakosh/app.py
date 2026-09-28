@@ -17,7 +17,7 @@ app.layout = build_layout          # a function: the layout is built fresh on ev
 server = app.server
 
 # Importing the callback modules registers them.
-from .ui import cb_admin, cb_audit, cb_auth, cb_confirm, cb_vaults  # noqa: E402,F401
+from .ui import cb_admin, cb_audit, cb_auth, cb_confirm, cb_health, cb_vaults  # noqa: E402,F401
 
 
 @server.after_request

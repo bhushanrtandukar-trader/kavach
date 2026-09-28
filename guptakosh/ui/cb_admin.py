@@ -26,6 +26,7 @@ def _role_options(role):
     Output('pol-attempts', 'value'),
     Output('pol-lock', 'value'),
     Output('pol-invite', 'value'),
+    Output('pol-breach', 'value'),
     Input('nav', 'active_tab'),
     Input('admin-refresh', 'data'),
     Input('session-token', 'data'),
@@ -51,7 +52,7 @@ def admin_load(tab, _refresh, token):
               'entry_count': v['entry_count']} for v in overview]
     opts = _role_options(me['role'])
     return (urows, orows, opts, opts, pol['min_password_length'], pol['idle_timeout_secs'],
-            pol['max_attempts'], pol['lockout_secs'], pol['invite_ttl_hours'])
+            pol['max_attempts'], pol['lockout_secs'], pol['invite_ttl_hours'], bool(pol['breach_check']))
 
 
 @callback(
@@ -81,12 +82,13 @@ def admin_load(tab, _refresh, token):
     State('pol-attempts', 'value'),
     State('pol-lock', 'value'),
     State('pol-invite', 'value'),
+    State('pol-breach', 'value'),
     State('admin-refresh', 'data'),
     State('session-token', 'data'),
     prevent_initial_call=True,
 )
 def admin_actions(inv, cancel, create, role_btn, reinvite, mfa_reset, pol_save, username, display, email, inv_role,
-                  usel, urows, new_role, p_min, p_idle, p_att, p_lock, p_inv, ar, token):
+                  usel, urows, new_role, p_min, p_idle, p_att, p_lock, p_inv, p_breach, ar, token):
     trig, N = ctx.triggered_id, no_update
     try:
         if trig == 'invite-btn' and inv:
@@ -104,7 +106,8 @@ def admin_actions(inv, cancel, create, role_btn, reinvite, mfa_reset, pol_save, 
         if trig == 'pol-save' and pol_save:
             core.accounts.set_policy(token, {'min_password_length': p_min, 'idle_timeout_secs': p_idle,
                                              'max_attempts': p_att, 'lockout_secs': p_lock,
-                                             'invite_ttl_hours': p_inv})
+                                             'invite_ttl_hours': p_inv,
+                                             'breach_check': 1 if p_breach else 0})
             return N, N, N, N, N, alert('Policy saved.', 'success'), _bump(ar)
         if trig in ('role-btn', 'reinvite-btn', 'mfa-reset-btn') and (role_btn or reinvite or mfa_reset):
             if not usel:

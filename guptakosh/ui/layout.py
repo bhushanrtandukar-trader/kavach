@@ -181,6 +181,26 @@ def _confirm_modal():
     ], id='confirm-modal', is_open=False)
 
 
+def _health_modal():
+    return dbc.Modal([
+        dbc.ModalHeader([html.I(className="fas fa-heartbeat me-2"), "Vault health"]),
+        dbc.ModalBody([
+            dbc.Row([
+                dbc.Col(dbc.RadioItems(id='health-scope', value='this', inline=True, options=[
+                    {'label': 'This vault', 'value': 'this'}, {'label': 'All my vaults', 'value': 'all'}]),
+                        width="auto"),
+                dbc.Col(dbc.Switch(id='health-breach', value=False, label="Also check known data breaches"),
+                        width="auto"),
+            ], className="mb-1 g-3"),
+            html.Small(id='health-breach-note', className="text-muted d-block mb-3"),
+            dcc.Loading(html.Div(id='health-result'), type="dot"),
+            html.Small("The analysis runs on this server; no password is shown here or leaves it. A scan is "
+                       "recorded in the audit log.", className="text-muted d-block mt-3"),
+        ]),
+        dbc.ModalFooter(dbc.Button("Close", id='health-close', color="secondary")),
+    ], id='health-modal', is_open=False, size="lg", scrollable=True)
+
+
 def vaults_pane():
     return html.Div(id='vaults-pane', children=[
         dbc.Row([
@@ -192,6 +212,8 @@ def vaults_pane():
                               html.Span(id='vault-meta', className="small text-muted ms-2")]),
                     width="auto", className="align-self-end pb-2"),
             dbc.Col(dbc.ButtonGroup([
+                dbc.Button([html.I(className="fas fa-heartbeat me-1"), "Health"], id='health-btn',
+                           color="secondary", outline=True),
                 dbc.Button([html.I(className="fas fa-users me-1"), "Access"], id='members-btn',
                            color="secondary", outline=True),
                 dbc.Button([html.I(className="fas fa-plus me-1"), "New vault"], id='new-vault-btn',
@@ -240,7 +262,7 @@ def vaults_pane():
             style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248,248,252)'}],
         ),
         html.Div(id='table-empty', className="text-center text-muted py-4"),
-        _entry_modal(), _vault_modal(), _members_modal(), _confirm_modal(),
+        _entry_modal(), _vault_modal(), _members_modal(), _confirm_modal(), _health_modal(),
     ])
 
 
@@ -301,6 +323,11 @@ def admin_pane():
                 _policy_field('pol-attempts', "Failed sign-ins before lockout", "3 – 20"),
                 _policy_field('pol-lock', "Lockout length (seconds)", "30 – 86400"),
                 _policy_field('pol-invite', "Invite validity (hours)", "1 – 720"),
+                dbc.Col([dbc.Label("Breach check"),
+                         dbc.Switch(id='pol-breach', value=False, label="Allow checking passwords against known breaches"),
+                         html.Small("Sends only the first 5 characters of a password's SHA-1 hash to "
+                                    "api.pwnedpasswords.com (k-anonymity), from this server. Off by default.",
+                                    className="text-muted")], md=8, className="mb-3"),
             ]),
             dbc.Button("Save policy", id='pol-save', color="primary", size="sm"),
         ]),

@@ -19,6 +19,7 @@ DEFAULT_POLICY = {
     'max_attempts': 5,
     'lockout_secs': 300,
     'invite_ttl_hours': 72,
+    'breach_check': 0,            # 1 = users may check passwords against HIBP (k-anonymity)
 }
 POLICY_LIMITS = {
     'min_password_length': (8, 128),
@@ -26,6 +27,7 @@ POLICY_LIMITS = {
     'max_attempts': (3, 20),
     'lockout_secs': (30, 86400),
     'invite_ttl_hours': (1, 720),
+    'breach_check': (0, 1),
 }
 USERNAME_RE = re.compile(r'^[a-z0-9][a-z0-9._-]{2,31}$')
 EMAIL_RE = re.compile(r'^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$')
