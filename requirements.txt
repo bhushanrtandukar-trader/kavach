@@ -1,5 +1,8 @@
-dash>=2.14
-dash-bootstrap-components>=1.5
 cryptography>=42
 zxcvbn>=4.4
 segno>=1.6
+fastapi>=0.110
+uvicorn>=0.27
+# legacy Dash UI (removed once the Next.js frontend replaces it)
+dash>=2.14
+dash-bootstrap-components>=1.5

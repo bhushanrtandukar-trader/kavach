@@ -9,14 +9,24 @@ from .errors import ValidationError
 MIN_MASTER_SCORE = 3      # zxcvbn 0-4; 3 = "safely unguessable" against offline attacks
 
 
-def generate_password(length: int = 16) -> str:
-    length = max(length, 4)
-    upper, lower = string.ascii_uppercase, string.ascii_lowercase
-    digits, specials = string.digits, '_@#!'
-    pool = upper + lower + digits + specials
-    pwd = [secrets.choice(upper), secrets.choice(lower),
-           secrets.choice(digits), secrets.choice(specials)]
-    pwd += [secrets.choice(pool) for _ in range(length - 4)]
+SYMBOLS = '!@#$%^&*-_=+?'
+_AMBIGUOUS = set('O0oIl1|')
+
+
+def generate_password(length: int = 16, digits: bool = True, symbols: bool = True, ambiguous: bool = True) -> str:
+    """Cryptographically random password guaranteed to contain one of each enabled character class.
+    `ambiguous=False` drops look-alike characters (O/0, l/1/I) for passwords a person has to read out."""
+    pools = [string.ascii_uppercase, string.ascii_lowercase]
+    if digits:
+        pools.append(string.digits)
+    if symbols:
+        pools.append(SYMBOLS)
+    if not ambiguous:
+        pools = [''.join(c for c in p if c not in _AMBIGUOUS) for p in pools]
+    length = max(length, len(pools))
+    pwd = [secrets.choice(p) for p in pools]
+    allowed = ''.join(pools)
+    pwd += [secrets.choice(allowed) for _ in range(length - len(pwd))]
     secrets.SystemRandom().shuffle(pwd)
     return ''.join(pwd)
 

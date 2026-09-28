@@ -7,6 +7,16 @@ passwords.json
 *.tmp
 vault-data/
 
+# Python virtual environment (each developer creates their own)
+.venv/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
 # Python
 __pycache__/
 *.py[cod]

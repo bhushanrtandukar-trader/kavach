@@ -58,9 +58,13 @@ who is in it, never what is inside.
 
 ## Quick start
 
-```bash
-pip install -r requirements.txt
-python -m guptakosh          # then open http://127.0.0.1:8050
+Everything installs into a project-local virtual environment (`.venv`), so nothing touches your
+global Python or your other projects.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt     # macOS/Linux: .venv/bin/python
+.venv\Scripts\python -m guptakosh                           # then open http://127.0.0.1:8050
 ```
 
 The first visit shows a setup screen: name your organisation and create the first owner. Then use the
@@ -74,8 +78,8 @@ The first visit shows a setup screen: name your organisation and create the firs
 
 ### Upgrading from the single-user version
 
-```bash
-python manage.py import-legacy --from /path/to/old/folder --user <your-username>
+```powershell
+.venv\Scripts\python manage.py import-legacy --from /path/to/old/folder --user <your-username>
 ```
 
 It asks for the old master and secondary passwords, reads the old `config.json`/`passwords.json`
@@ -119,9 +123,9 @@ It asks for the old master and secondary passwords, reads the old `config.json`/
 
 ## Development
 
-```bash
-pip install -r requirements-dev.txt
-pytest
+```powershell
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest
 ```
 
 ## License

@@ -364,6 +364,29 @@ class Vaults:
             audit.log(c, 'vault.health_scan', who(u), vault_id or 'all', f'{len(items)} entries', s.ip)
             return items
 
+    def collect_metadata(self, token, vault_id=None):
+        """Entry metadata (never passwords) across the caller's vaults, or one vault, for search."""
+        with self.db.tx() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if vault_id:
+                vids = [vault_id]
+            else:
+                vids = [r['vault_id'] for r in c.execute('SELECT vault_id FROM vault_members WHERE user_id=?', (u['id'],))]
+            out = []
+            for vid in vids:
+                s, u, m, key = self._open(c, token, vid, 'read')
+                vname = 'Personal' if m['kind'] == 'personal' else m['name']
+                for r in c.execute('SELECT * FROM entries WHERE vault_id=? ORDER BY updated_at DESC', (vid,)).fetchall():
+                    try:
+                        d = _decrypt_entry(key, vid, r['id'], r['blob'])
+                    except (crypto.DecryptError, ValueError):
+                        continue
+                    out.append({'id': r['id'], 'vault_id': vid, 'vault': vname, 'service': d.get('service', ''),
+                                'username': d.get('username', ''), 'url': d.get('url', ''), 'notes': d.get('notes', ''),
+                                'updated_at': r['updated_at'], 'created_at': r['created_at'],
+                                'password_changed_at': d.get('password_changed_at', r['created_at']), 'corrupt': False})
+            return out
+
     def add_entry(self, token, vault_id, fields):
         data = clean_entry(fields)
         with self.db.tx() as c:
