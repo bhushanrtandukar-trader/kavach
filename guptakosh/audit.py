@@ -58,3 +58,8 @@ def query(conn, action_prefix='', actor='', limit=200, offset=0):
     sql += ' ORDER BY id DESC LIMIT ? OFFSET ?'
     args += [int(limit), int(offset)]
     return [dict(r) for r in conn.execute(sql, args)]
+
+
+def since(conn, ts):
+    """All rows at or after `ts`, oldest first (used by the anomaly detector)."""
+    return [dict(r) for r in conn.execute('SELECT * FROM audit WHERE ts >= ? ORDER BY id', (ts,))]

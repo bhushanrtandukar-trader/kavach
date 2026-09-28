@@ -1,5 +1,6 @@
 """Audit log viewer and account (self-service) pane."""
 import dash
+import dash_bootstrap_components as dbc
 import segno
 from dash import Input, Output, State, callback, ctx, html, no_update
 from datetime import datetime
@@ -156,3 +157,40 @@ def mfa_controller(me_store, tab, begin, confirm, disable, code, off_pw, off_cod
                 off_style, N, N, err(e), N, '', '')
     status, begin_style, setup_style, off_style = _mfa_state(me)
     return status, begin_style, setup_style, off_style, '', '', feedback, '', '', ''
+
+
+# ── security insights (anomaly detection) ────────────────────────────────
+SEV_COLOR = {'high': 'danger', 'medium': 'warning', 'low': 'secondary'}
+
+
+@callback(
+    Output('insights-box', 'children'),
+    Input('nav', 'active_tab'),
+    Input('audit-refresh-btn', 'n_clicks'),
+    Input('session-token', 'data'),
+    prevent_initial_call=True,
+)
+def insights_load(tab, _n, token):
+    if not token:
+        return ''
+    if tab != 'audit':
+        raise dash.exceptions.PreventUpdate
+    try:
+        res = core.accounts.security_insights(token)
+    except AppError as e:
+        return err(e)
+    findings = res['findings']
+    if not findings:
+        return alert(f"Nothing unusual in the last {res['days']} days ({res['events_analysed']:,} events analysed).",
+                     'success')
+    rows = []
+    for f in findings[:25]:
+        when = datetime.fromtimestamp(f['ts']).strftime('%Y-%m-%d %H:%M')
+        rows.append(dbc.ListGroupItem([
+            html.Div([dbc.Badge(f['severity'].upper(), color=SEV_COLOR[f['severity']], className="me-2"),
+                      html.B(f['title']), html.Span(f"  \u00b7 {when}", className="text-muted small")]),
+            html.Div(f['detail'], className="small mt-1"),
+            html.Div([html.I(className="fas fa-lightbulb me-1"), f['advice']], className="small text-muted mt-1"),
+        ], className="py-2"))
+    more = [] if len(findings) <= 25 else [html.Small(f"{len(findings) - 25} more not shown.", className="text-muted")]
+    return [dbc.ListGroup(rows, flush=True)] + more

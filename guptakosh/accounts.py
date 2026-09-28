@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime
 
-from . import audit, crypto, perms, totp
+from . import audit, crypto, insights, perms, totp
 from .common import load_actor, who
 from .db import meta_get, meta_set
 from .errors import (AuthError, Conflict, Forbidden, LockedOut, MfaRequired, NotFound, SessionExpired,
@@ -478,6 +478,16 @@ class Accounts:
             if not perms.can_view_audit(u['role']):
                 raise Forbidden()
             return audit.query(c, action_prefix, actor, limit, offset)
+
+    def security_insights(self, token, days=7, history_days=90):
+        """Anomalies in the last `days` days, judged against each person's own history."""
+        now = time.time()
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if not perms.can_view_audit(u['role']):
+                raise Forbidden()
+            rows = audit.since(c, now - (history_days + days) * 86400)
+        return {'findings': insights.analyze(rows, now, days), 'events_analysed': len(rows), 'days': days}
 
     def verify_audit(self, token):
         with self.db.read() as c:

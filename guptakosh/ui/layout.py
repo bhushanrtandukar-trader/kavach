@@ -356,6 +356,12 @@ def admin_pane():
 # ══════════════════════════ audit + account panes ══════════════════════════
 def audit_pane():
     return html.Div(id='audit-pane', style={'display': 'none'}, children=[
+        html.Div(className="pane-card mb-4", children=[
+            html.H5([html.I(className="fas fa-shield-alt me-2"), "Security insights"], className="page-heading mb-1"),
+            html.Small("Unusual activity in the last 7 days, judged against each person's own normal behaviour.",
+                       className="text-muted d-block mb-3"),
+            dcc.Loading(html.Div(id='insights-box'), type="dot"),
+        ]),
         html.Div(className="pane-card", children=[
             dbc.Row([
                 dbc.Col(dbc.Select(id='audit-filter', value='all', options=[
