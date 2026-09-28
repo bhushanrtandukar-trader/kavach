@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: { default: "Kavach — Security Intelligence", template: "%s · Kavach" },
   description: "Self-hosted vault and security intelligence for teams: private, explainable, and prioritised.",
   robots: { index: false, follow: false },
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/icon.png" },
 };
 
 export const viewport: Viewport = {

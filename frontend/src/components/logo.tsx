@@ -3,18 +3,8 @@ import { cn } from "@/lib/utils";
 
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        "gradient-bg relative inline-flex size-9 items-center justify-center rounded-xl text-white shadow-[0_8px_24px_-8px_var(--primary)]",
-        className,
-      )}
-    >
-      <svg viewBox="0 0 32 32" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-        <circle cx="16" cy="16" r="7" />
-        <circle cx="16" cy="16" r="2" fill="currentColor" stroke="none" />
-        <path d="M16 4v3M16 25v3M4 16h3M25 16h3" />
-      </svg>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/icon.png" alt="" width={36} height={36} className={cn("size-9 shrink-0 drop-shadow-[0_6px_16px_-6px_var(--primary)]", className)} />
   );
 }
 
