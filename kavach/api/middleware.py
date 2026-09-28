@@ -25,7 +25,9 @@ def install(app: FastAPI, allowed_origins=()):
             if request.headers.get('x-requested-with') != 'kavach':
                 return _deny('Missing request header.')
             origin = request.headers.get('origin')
-            if origin:
+            # /api/ext is bearer-token only (no cookie), so there is no ambient credential for a foreign page
+            # to ride on; a browser extension's requests carry a chrome-extension:// origin.
+            if origin and not request.url.path.startswith('/api/ext/'):
                 same_site = urlsplit(origin).netloc.lower() == request.headers.get('host', '').lower()
                 if not same_site and origin.rstrip('/').lower() not in allowed:
                     return _deny('Cross-origin request refused.')

@@ -290,7 +290,7 @@ class Accounts:
         if new_address:
             self.notifier.alert('new_signin', u['email'], u['display_name'], ip=ip,
                                 client='the Kavach browser extension' if client == 'extension' else '')
-        return self.sessions.create(u['id'], uname, priv, ip).token
+        return self.sessions.create(u['id'], uname, priv, ip, kind='ext' if client == 'extension' else 'web').token
 
     @staticmethod
     def _is_new_address(c, user_id, ip) -> bool:

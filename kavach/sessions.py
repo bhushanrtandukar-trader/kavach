@@ -25,6 +25,7 @@ class Session:
     last_activity: float
     vault_keys: dict = field(default_factory=dict)     # vault_id -> (key_version, key)
     cache: dict = field(default_factory=dict)          # verdict-only analysis results; cleared on any write
+    kind: str = 'web'                                  # 'web' (browser cookie) or 'ext' (browser extension token)
 
 
 class SessionStore:
@@ -33,9 +34,9 @@ class SessionStore:
         self._sessions = {}
         self._lock = threading.Lock()
 
-    def create(self, user_id, username, private_key, ip='') -> Session:
+    def create(self, user_id, username, private_key, ip='', kind='web') -> Session:
         now = time.time()
-        s = Session(secrets.token_urlsafe(32), user_id, username, private_key, ip, now, now)
+        s = Session(secrets.token_urlsafe(32), user_id, username, private_key, ip, now, now, kind=kind)
         with self._lock:
             self._sessions[s.token] = s
         return s

@@ -17,6 +17,9 @@ frontend/out/
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
+# Browser extension
+extension/node_modules/
+
 # Python
 __pycache__/
 *.py[cod]

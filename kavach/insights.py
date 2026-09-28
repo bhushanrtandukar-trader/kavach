@@ -19,7 +19,7 @@ import time
 from datetime import datetime
 
 SEVERITY_RANK = {'high': 0, 'medium': 1, 'low': 2}
-SECRET_ACCESS = {'entry.copy': 1, 'entry.reveal': 1, 'vault.reveal_all': 3}   # "Show all" is routine, so it weighs less
+SECRET_ACCESS = {'entry.copy': 1, 'entry.reveal': 1, 'entry.autofill': 1, 'vault.reveal_all': 3}   # "Show all" is routine, so it weighs less
 SENSITIVE_ADMIN = {'user.role', 'user.reset_access', 'user.mfa_reset', 'user.disable', 'user.mfa_disable',
                    'policy.update'}
 

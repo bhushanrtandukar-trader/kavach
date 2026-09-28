@@ -4,7 +4,7 @@ import time
 
 from .. import audit
 from ..common import load_actor, who
-from ..errors import AppError
+from ..errors import AppError, Conflict, Forbidden
 from ..health import BreachCheckError, breach_counts
 from . import advisor, risk, siteguard, timeline
 
@@ -79,6 +79,35 @@ class Intel:
     def site_check(self, token, url) -> dict:
         entries = self.core.vaults.collect_metadata(token)
         return siteguard.check(url, entries)
+
+    # ── browser extension ─────────────────────────────────────────────────
+    def ext_site_check(self, token, url) -> dict:
+        """Site check for the extension: like `site_check`, but `matches` only lists logins that may actually be
+        filled here (the saved host, or a parent of the page's host)."""
+        entries = self.core.vaults.collect_metadata(token)
+        r = siteguard.check(url, entries)
+        ok = {e['id'] for e in entries if siteguard.host_allows(url, e.get('url') or '')}
+        r['matches'] = [m for m in r['matches'] if m['id'] in ok]
+        if not r['matches'] and r['decision'] in ('autofill', 'confirm'):
+            r['decision'] = 'no_match'
+        return r
+
+    def credential(self, token, url, vault_id, entry_id, confirmed=False) -> dict:
+        """Release one login to the extension, but only for a page that passes the same checks the extension
+        showed the person: not blocked, saved for this host, and confirmed when the page is only 'ask first'."""
+        r = self.ext_site_check(token, url)
+        if r['decision'] == 'block':
+            raise Forbidden('Kavach will not fill this page: ' + r['reasons'][0])
+        if not any(m['id'] == entry_id and m['vault_id'] == vault_id for m in r['matches']):
+            raise Forbidden('That login is not saved for this site.')
+        if r['decision'] == 'confirm' and not confirmed:
+            raise Conflict('Confirm first: ' + r['reasons'][0])
+        return self.core.vaults.get_credential(token, vault_id, entry_id, r['domain'])
+
+    def ext_summary(self, token) -> dict:
+        rep = self.report(token, quiet=True)
+        return {'score': rep['score'], 'label': rep['label'], 'total': rep['total'],
+                'actions': [{'title': a['title'], 'priority': a['priority']} for a in rep['actions'][:3]]}
 
     def timeline(self, token, limit=60) -> list:
         core = self.core

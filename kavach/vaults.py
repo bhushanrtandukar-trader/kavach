@@ -313,6 +313,15 @@ class Vaults:
                       f'{vault_id}/{entry_id}', m['name'], s.ip)
             return d.get('password', '')
 
+    def get_credential(self, token, vault_id, entry_id, site):
+        """What the browser extension fills in.  Audited as its own action, naming the site it went to."""
+        with self.db.tx() as c:
+            s, u, m, key = self._open(c, token, vault_id, 'read')
+            _, d = self._load_entry(c, key, vault_id, entry_id)
+            audit.log(c, 'entry.autofill', who(u), f'{vault_id}/{entry_id}', site, s.ip)
+            return {'service': d.get('service', ''), 'username': d.get('username', ''),
+                    'password': d.get('password', '')}
+
     def reveal_all(self, token, vault_id):
         with self.db.tx() as c:
             s, u, m, key = self._open(c, token, vault_id, 'read')

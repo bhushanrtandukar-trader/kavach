@@ -55,6 +55,15 @@ class Me(Model):
     org_name: str
 
 
+class ExtSession(Model):
+    me: Me
+    idle_timeout_secs: int
+
+
+class ExtLoginOut(ExtSession):
+    token: str
+
+
 class AuthStatus(Model):
     initialized: bool
     org_name: str
@@ -178,6 +187,35 @@ class StrengthOut(Model):
 
 class UrlCheckIn(Strict):
     url: str = Field(max_length=500)
+
+
+class PageIn(Strict):
+    url: str = Field(max_length=2000)
+
+
+class ExtCredentialIn(Strict):
+    url: str = Field(max_length=2000)
+    vault_id: str = Field(max_length=64)
+    entry_id: str = Field(max_length=64)
+    confirmed: bool = False
+
+
+class ExtCredential(Model):
+    service: str
+    username: str
+    password: str
+
+
+class ExtAction(Model):
+    title: str
+    priority: str
+
+
+class ExtSummary(Model):
+    score: int
+    label: str
+    total: int
+    actions: List[ExtAction]
 
 
 class UrlWarning(Model):

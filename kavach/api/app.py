@@ -13,6 +13,7 @@ from .. import config
 from ..core import Core
 from . import errors, middleware
 from .ratelimit import RateLimiter
+from .ext import router as ext_router
 from .routes import router
 
 FRONTEND_DIR = Path(os.environ.get('KAVACH_FRONTEND_DIR') or Path(__file__).resolve().parents[2] / 'frontend' / 'out')
@@ -57,6 +58,7 @@ def create_app(core: Optional[Core] = None, *, dev: Optional[bool] = None, front
     app.state.core = core or Core(config.DATA_DIR)
     app.router.lifespan_context = _lifespan(app)
     app.state.strength_limiter = RateLimiter(60, 60)      # public strength meter: 60 calls / minute / address
+    app.state.ext_login_limiter = RateLimiter(20, 60)     # extension sign-ins: 20 / minute / address
     app.state.mail_test_limiter = RateLimiter(5, 60)      # test emails: 5 / minute / administrator
     app.state.trust_proxy = _env_flag('KAVACH_TRUST_PROXY') if trust_proxy is None else trust_proxy
     app.state.cookie_secure = cookie_secure if cookie_secure is not None else (
@@ -68,6 +70,7 @@ def create_app(core: Optional[Core] = None, *, dev: Optional[bool] = None, front
     middleware.install(app, origins)
     errors.install(app)
     app.include_router(router)
+    app.include_router(ext_router)
 
     @app.get('/api/{rest:path}', include_in_schema=False)
     def unknown_api(rest: str):

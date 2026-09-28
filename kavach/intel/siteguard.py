@@ -10,7 +10,7 @@ Decisions:   autofill  (matches a saved login and looks clean)
              block     (very likely phishing: refuse)
              no_match  (nothing saved for this site; nothing to fill)
 
-This module is the piece a browser extension would call; the extension itself is not part of this project.
+The browser extension calls this (through /api/ext/site-check) on every page that has a password field.
 """
 from .. import phishing
 
@@ -35,6 +35,19 @@ def _imitates(page: str, saved: str) -> bool:
     if b in phishing._skeletons(a):                         # paypa1 / rnicrosoft / homoglyphs
         return True
     return len(b) >= 6 and any(phishing.edit_distance(s, b) <= 1 for s in phishing._skeletons(a) | {a})
+
+
+def _plain_host(url: str) -> str:
+    h = phishing._decode_host(phishing.host_of(url))
+    return h[4:] if h.startswith('www.') else h
+
+
+def host_allows(page_url: str, saved_url: str) -> bool:
+    """May a login saved for `saved_url` be filled into `page_url`?  Stricter than the phishing check's "same
+    registrable domain": the page must be the saved host or a subdomain of it.  That keeps a login saved for one
+    tenant of a shared suffix (a.github.io) from being offered to another (b.github.io)."""
+    p, s = _plain_host(page_url), _plain_host(saved_url)
+    return bool(p and s) and (p == s or p.endswith('.' + s))
 
 
 def check(url: str, entries) -> dict:

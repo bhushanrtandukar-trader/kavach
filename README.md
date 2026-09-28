@@ -38,6 +38,8 @@ app the same server serves.
   before shopping), with aging, two-factor and breach severity folded in.
 - **Autofill risk engine** — for any address: *autofill*, *ask first*, or *block*, personalised to the sites you
   have saved (a page imitating a saved login is blocked and names the login it imitates).
+- **Browser extension** — the autofill risk engine in your toolbar: fills a saved login only on the site it
+  belongs to, and refuses on a page it judges to be phishing. See [extension/](extension/README.md).
 - **Security advisor** — ask "How secure am I?" or "What should I fix today?" and get plain-language answers
   built from the verdicts (no LLM, no secrets), plus a **security timeline** of how you are improving.
 - **Breach check (opt-in)** — HIBP k-anonymity lookup: only a 5-character hash prefix leaves the server, off
@@ -154,9 +156,8 @@ hand-calibrated. The design leaves room to swap in trained models (logistic regr
 anomaly detection) behind the same interface.
 
 **What it does not do (yet):** monitor whether your *email address* appears in breaches (needs a paid
-third-party API and would send identities out); look up domain age, TLS certificates or redirect chains (needs
-live network lookups on every site); or ship a browser extension (the decision engine at
-`POST /api/tools/site-check` is what an extension would call).
+third-party API and would send identities out); or look up domain age, TLS certificates or redirect chains
+(needs live network lookups on every site).
 
 ## Roles
 
@@ -253,7 +254,7 @@ afterwards.
 - The per-user security digest (your own score by email) is not offered: scoring needs your vault unlocked, and
   Kavach only holds keys while you are signed in.
 - Two-factor is opt-in per user; there is no organisation-wide "require 2FA" setting yet.
-- No password sharing links, attachments or browser extension yet.
+- No password sharing links or attachments yet.
 
 ## Tests
 
