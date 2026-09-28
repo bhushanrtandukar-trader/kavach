@@ -15,7 +15,7 @@ def main():
     args = ap.parse_args()
     if args.dev:
         os.environ['GUPTAKOSH_DEV'] = '1'
-    print(f'{config.APP_NAME} API + UI on http://{args.host}:{args.port}' + ('  (dev mode)' if args.dev else ''))
+    print(f'Guptakosh API + UI on http://{args.host}:{args.port}' + ('  (dev mode)' if args.dev else ''))
     uvicorn.run('guptakosh.api.app:get_app', factory=True, host=args.host, port=args.port, log_level='info')
 
 
