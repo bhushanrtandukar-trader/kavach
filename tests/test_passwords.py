@@ -39,7 +39,10 @@ def test_assess_and_labels():
 
 
 def test_personal_details_lower_the_score():
-    assert assess('olivia-acme-2024', ['olivia', 'acme'])['score'] < assess('olivia-acme-2024')['score']
+    # the 0-4 score can saturate, so compare the underlying guess estimate
+    known = assess('olivia-acme-2024', ['olivia', 'acme'])['guesses_log10']
+    assert known < assess('olivia-acme-2024')['guesses_log10']
+    assert assess('olivia2024x', ['olivia'])['score'] <= assess('olivia2024x')['score']
 
 
 def test_master_password_rules():
