@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import { Aurora } from "@/components/aurora";
 import { Providers } from "@/components/providers";
+import { Nohemi } from "@/fonts/nohemi";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${Nohemi.variable} ${GeistMono.variable}`}>
       <body suppressHydrationWarning>
         <Aurora />
         <Providers>{children}</Providers>
