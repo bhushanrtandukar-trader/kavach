@@ -117,6 +117,22 @@ def unwrap_secret(private_raw: bytes, blob: bytes, aad: bytes) -> bytes:
     return unseal(_wrap_key(shared, eph_pub, my_pub), blob[32:], aad)
 
 
+def load_server_key(path: str) -> bytes:
+    """Key for secrets the server itself must be able to read (TOTP seeds), kept apart from the
+    database so a stolen database file alone does not reveal them.  Created on first use."""
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            key = f.read()
+        if len(key) != 32:
+            raise ValueError(f'{path} is damaged (expected 32 bytes).')
+        return key
+    key = secrets.token_bytes(32)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'wb') as f:
+        f.write(key)
+    return key
+
+
 def token_hash(token: str) -> str:
     """Hash of a high-entropy random token (invite codes)."""
     return hashlib.sha256(token.encode('utf-8')).hexdigest()

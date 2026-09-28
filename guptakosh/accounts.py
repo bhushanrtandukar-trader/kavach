@@ -5,10 +5,10 @@ import time
 import uuid
 from datetime import datetime
 
-from . import audit, crypto, perms
+from . import audit, crypto, perms, totp
 from .common import load_actor, who
 from .db import meta_get, meta_set
-from .errors import (AuthError, Conflict, Forbidden, LockedOut, NotFound, SessionExpired,
+from .errors import (AuthError, Conflict, Forbidden, LockedOut, MfaRequired, NotFound, SessionExpired,
                      ValidationError)
 from .passwords import check_master_password
 from .vaults import create_vault_row
@@ -39,9 +39,10 @@ def _public(row) -> dict:
 
 
 class Accounts:
-    def __init__(self, db, sessions):
+    def __init__(self, db, sessions, server_key: bytes):
         self.db = db
         self.sessions = sessions
+        self._server_key = server_key
         with db.read() as c:
             self.sessions.idle_timeout = self.policy(c)['idle_timeout_secs']
 
@@ -201,8 +202,30 @@ class Accounts:
             audit.log(c, 'user.activate', (u['id'], uname), uname, '', ip)
 
     # ── login / logout ────────────────────────────────────────────────────
-    def login(self, username, password, ip=''):
-        """Returns a session token, or raises AuthError / LockedOut."""
+    def _fail_login(self, u, pol, uname, ip, reason, message='Invalid username or password.'):
+        """Count a failed attempt (persistently) and raise LockedOut once the limit is reached."""
+        locked = None
+        with self.db.tx() as c:
+            attempts = c.execute('SELECT failed_attempts FROM users WHERE id=?', (u['id'],)).fetchone()[0] + 1
+            if attempts >= pol['max_attempts']:
+                locked = pol['lockout_secs']
+                c.execute('UPDATE users SET failed_attempts=0, locked_until=? WHERE id=?',
+                          (time.time() + locked, u['id']))
+                audit.log(c, 'auth.locked', (u['id'], uname), uname, f'{locked}s', ip)
+            else:
+                c.execute('UPDATE users SET failed_attempts=? WHERE id=?', (attempts, u['id']))
+            audit.log(c, 'auth.login_failed', (u['id'], uname), uname, reason, ip)
+        if locked:
+            raise LockedOut(locked)
+        raise AuthError(message)
+
+    def _totp_secret(self, u) -> str:
+        return crypto.unseal(self._server_key, crypto.b64d(u['totp_secret']),
+                             f"totp:{u['id']}".encode()).decode('ascii')
+
+    def login(self, username, password, ip='', totp_code=None):
+        """Returns a session token.  Raises AuthError / LockedOut, or MfaRequired when the password
+        was right but the account has two-factor enabled and no code was supplied."""
         uname = (username or '').strip().lower()
         with self.db.read() as c:
             u = c.execute('SELECT * FROM users WHERE username=?', (uname,)).fetchone()
@@ -219,28 +242,20 @@ class Accounts:
         try:
             priv = self._open_private_key(u, password or '')
         except crypto.DecryptError:
-            priv = None
-        if priv is None:
-            locked = None
-            with self.db.tx() as c:
-                row = c.execute('SELECT failed_attempts FROM users WHERE id=?', (u['id'],)).fetchone()
-                attempts = row['failed_attempts'] + 1
-                if attempts >= pol['max_attempts']:
-                    locked = pol['lockout_secs']
-                    c.execute('UPDATE users SET failed_attempts=0, locked_until=? WHERE id=?',
-                              (time.time() + locked, u['id']))
-                    audit.log(c, 'auth.locked', (u['id'], uname), uname, f'{locked}s', ip)
-                else:
-                    c.execute('UPDATE users SET failed_attempts=? WHERE id=?', (attempts, u['id']))
-                audit.log(c, 'auth.login_failed', (u['id'], uname), uname, 'wrong password', ip)
-            if locked:
-                raise LockedOut(locked)
-            raise AuthError()
+            self._fail_login(u, pol, uname, ip, 'wrong password')
+
+        step = None
+        if u['totp_enabled']:
+            if not totp_code:
+                raise MfaRequired()
+            step = totp.verify(self._totp_secret(u), totp_code, u['totp_last_step'])
+            if step is None:
+                self._fail_login(u, pol, uname, ip, 'wrong or reused 2FA code', 'That code is not correct.')
 
         with self.db.tx() as c:
-            c.execute('UPDATE users SET failed_attempts=0, locked_until=0, last_login=? WHERE id=?',
-                      (time.time(), u['id']))
-            audit.log(c, 'auth.login', (u['id'], uname), uname, '', ip)
+            c.execute('UPDATE users SET failed_attempts=0, locked_until=0, last_login=?, '
+                      'totp_last_step=COALESCE(?, totp_last_step) WHERE id=?', (time.time(), step, u['id']))
+            audit.log(c, 'auth.login', (u['id'], uname), uname, '2FA' if step else '', ip)
         return self.sessions.create(u['id'], uname, priv, ip).token
 
     def logout(self, token):
@@ -295,6 +310,55 @@ class Accounts:
                        time.time(), u['id']))
             audit.log(c, 'user.change_password', who(u), u['username'], '', s.ip)
         self.sessions.destroy_user(u['id'], except_token=token)   # sign out other devices
+
+    # ── two-factor authentication ─────────────────────────────────────────
+    def totp_begin(self, token):
+        """Start enrolment.  Returns (secret_b32, otpauth_uri); nothing is enforced until confirmed."""
+        with self.db.tx() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if u['totp_enabled']:
+                raise Conflict('Two-factor authentication is already on.')
+            secret = totp.new_secret()
+            enc = crypto.seal(self._server_key, secret.encode('ascii'), f"totp:{u['id']}".encode())
+            c.execute('UPDATE users SET totp_secret=? WHERE id=?', (crypto.b64e(enc), u['id']))
+            return secret, totp.provisioning_uri(secret, u['username'], meta_get(c, 'org_name', 'Guptakosh'))
+
+    def totp_confirm(self, token, code):
+        with self.db.tx() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if u['totp_enabled'] or not u['totp_secret']:
+                raise Conflict('Start the set-up first.')
+            step = totp.verify(self._totp_secret(u), code, 0)
+            if step is None:
+                raise ValidationError('That code is not correct. Check the time on your phone and try again.')
+            c.execute('UPDATE users SET totp_enabled=1, totp_last_step=? WHERE id=?', (step, u['id']))
+            audit.log(c, 'user.mfa_enable', who(u), u['username'], '', s.ip)
+
+    def totp_disable(self, token, password, code):
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+        if not u['totp_enabled']:
+            raise Conflict('Two-factor authentication is not on.')
+        try:
+            self._open_private_key(u, password or '')
+        except crypto.DecryptError:
+            raise ValidationError('Your password is not correct.') from None
+        if totp.verify(self._totp_secret(u), code, u['totp_last_step']) is None:
+            raise ValidationError('That code is not correct.')
+        with self.db.tx() as c:
+            c.execute('UPDATE users SET totp_secret=NULL, totp_enabled=0, totp_last_step=0 WHERE id=?', (u['id'],))
+            audit.log(c, 'user.mfa_disable', who(u), u['username'], '', s.ip)
+
+    def reset_totp(self, token, user_id):
+        """Admin: someone lost their phone.  They can sign in with just their password until they
+        enrol again."""
+        with self.db.tx() as c:
+            s, u = load_actor(c, self.sessions, token)
+            t = self._target(c, u, user_id)
+            if t['id'] == u['id']:
+                raise Conflict('Use "turn off" in your own account settings.')
+            c.execute('UPDATE users SET totp_secret=NULL, totp_enabled=0, totp_last_step=0 WHERE id=?', (user_id,))
+            audit.log(c, 'user.mfa_reset', who(u), t['username'], '', s.ip)
 
     # ── administration ────────────────────────────────────────────────────
     @staticmethod
@@ -386,7 +450,7 @@ class Accounts:
             ttl = self.policy(c)['invite_ttl_hours'] * 3600
             c.execute("UPDATE users SET status='invited', invite_hash=?, invite_expires=?, kdf_salt=NULL, "
                       "kdf_n=NULL, kdf_r=NULL, kdf_p=NULL, public_key=NULL, enc_private_key=NULL, "
-                      "totp_secret=NULL, totp_enabled=0, failed_attempts=0, locked_until=0 WHERE id=?",
+                      "totp_secret=NULL, totp_enabled=0, totp_last_step=0, failed_attempts=0, locked_until=0 WHERE id=?",
                       (crypto.token_hash(code), time.time() + ttl, user_id))
             audit.log(c, 'user.reset_access', who(u), t['username'], '', s.ip)
         self.sessions.destroy_user(user_id)

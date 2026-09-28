@@ -9,6 +9,7 @@
 import argparse
 import getpass
 import os
+import shutil
 import sqlite3
 import sys
 
@@ -51,11 +52,16 @@ def cmd_backup(core, args):
         src.backup(dst)
     src.close()
     dst.close()
-    try:
-        os.chmod(args.dest, 0o600)
-    except OSError:
-        pass
-    print(f'Backup written to {args.dest}. It is encrypted at rest but still sensitive: store it safely.')
+    key_dest = args.dest + '.server.key'
+    shutil.copyfile(os.path.join(os.path.dirname(core.db.path), 'server.key'), key_dest)
+    for path in (args.dest, key_dest):
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+    print(f'Backup written to {args.dest}.\n'
+          f'Also written: {key_dest} (needed to read two-factor secrets). Store the two files in\n'
+          'DIFFERENT places: the database alone must not sit next to the key that protects its 2FA seeds.')
 
 
 def cmd_verify_audit(core, args):

@@ -3,7 +3,7 @@ import contextlib
 import os
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     locked_until        REAL NOT NULL DEFAULT 0,
     totp_secret         TEXT,
     totp_enabled        INTEGER NOT NULL DEFAULT 0,
+    totp_last_step      INTEGER NOT NULL DEFAULT 0,
     created_at          REAL NOT NULL,
     last_login          REAL,
     password_changed_at REAL
@@ -90,12 +91,23 @@ class Database:
             conn.executescript(SCHEMA)
             conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)",
                          (str(SCHEMA_VERSION),))
+            self._migrate(conn)
         finally:
             conn.close()
         try:
             os.chmod(path, 0o600)
         except OSError:
             pass
+
+    @staticmethod
+    def _migrate(conn):
+        """Bring an older database up to SCHEMA_VERSION.  Each step runs once, in order."""
+        version = int(conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0])
+        if version < 2:
+            cols = {r[1] for r in conn.execute('PRAGMA table_info(users)')}
+            if 'totp_last_step' not in cols:
+                conn.execute('ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0')
+            conn.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=30, isolation_level=None)

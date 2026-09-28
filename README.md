@@ -20,6 +20,8 @@ credentials through shared vaults with fine-grained roles; every sensitive actio
 - **Audit log** — sign-ins, failures, lockouts, membership changes, and every password reveal/copy,
   in a hash chain so tampering is detectable (UI button and `manage.py verify-audit`).
 - **Policy** — minimum password length, idle timeout, lockout thresholds, invite lifetime.
+- **Two-factor authentication** — standard authenticator apps (TOTP, RFC 6238) with QR enrolment, replay
+  protection and admin reset for lost phones.
 - **Password strength** — [zxcvbn](https://github.com/dropbox/zxcvbn) pattern-based scoring for the
   master password policy and the entry strength meter.
 - **Ops tooling** — `manage.py backup`, `verify-audit`, `import-legacy`.
@@ -54,7 +56,7 @@ The first visit shows a setup screen: name your organisation and create the firs
 
 | Environment variable | Meaning | Default |
 |---|---|---|
-| `GUPTAKOSH_DATA_DIR` | Where `guptakosh.db` lives | `./data` |
+| `GUPTAKOSH_DATA_DIR` | Where `guptakosh.db` and `server.key` live | `./data` |
 | `GUPTAKOSH_NAME` | Name shown in the UI | `Guptakosh` |
 | `GUPTAKOSH_HOST` / `GUPTAKOSH_PORT` | Bind address | `127.0.0.1` / `8050` |
 
@@ -89,6 +91,8 @@ It asks for the old master and secondary passwords, reads the old `config.json`/
   the user's personal vault is gone; shared vaults are re-shared by their managers.
 - The audit log's hash chain detects edits and deletions in the middle of the log. Someone who can rewrite
   the whole database can rewrite the whole chain; forward the log elsewhere if that matters to you.
+- Two-factor seeds are the one secret the server must read, so they are encrypted with `server.key`, kept
+  apart from the database. Back the two up separately (`manage.py backup` writes both).
 - Failed-login lockout is per account, so someone can deliberately lock a colleague out for a few minutes.
 
 ## Limitations
@@ -96,7 +100,7 @@ It asks for the old master and secondary passwords, reads the old `config.json`/
 - Sessions live in server memory: restarting the server signs everyone out, and a multi-process
   deployment needs sticky sessions or a single worker.
 - No email delivery: invite codes are shown once to the admin, who passes them on.
-- No two-factor authentication yet.
+- Two-factor is opt-in per user; there is no organisation-wide "require 2FA" setting yet.
 - The page loads Google Fonts and Font Awesome from CDNs, so browsers contact those hosts.
 
 ## Development

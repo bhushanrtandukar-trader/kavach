@@ -1,6 +1,7 @@
 """Wires the pieces together."""
 import os
 
+from . import crypto
 from .accounts import Accounts
 from .db import Database
 from .sessions import SessionStore
@@ -12,5 +13,6 @@ class Core:
         os.makedirs(data_dir, exist_ok=True)
         self.db = Database(os.path.join(data_dir, 'guptakosh.db'))
         self.sessions = SessionStore()
-        self.accounts = Accounts(self.db, self.sessions)
+        self.server_key = crypto.load_server_key(os.path.join(data_dir, 'server.key'))
+        self.accounts = Accounts(self.db, self.sessions, self.server_key)
         self.vaults = Vaults(self.db, self.sessions)

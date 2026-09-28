@@ -12,6 +12,13 @@ class AuthError(AppError):
         super().__init__(message)
 
 
+class MfaRequired(AppError):
+    """Password was correct; a second factor is needed."""
+
+    def __init__(self):
+        super().__init__('Enter the 6-digit code from your authenticator app.')
+
+
 class LockedOut(AppError):
     def __init__(self, remaining):
         super().__init__(f'Too many failed attempts. Try again in {remaining}s.')

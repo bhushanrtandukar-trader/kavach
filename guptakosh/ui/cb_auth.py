@@ -3,7 +3,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, clientside_callback, html, no_update
 
-from ..errors import AppError, SessionExpired
+from ..errors import AppError, MfaRequired, SessionExpired
 from .context import ORG_ROLE_LABEL, alert, client_ip, core, err, role_badge
 
 SHOW = {'display': 'block'}
@@ -55,22 +55,29 @@ def switch_mode(a, b):
     Output('session-token', 'data', allow_duplicate=True),
     Output('auth-feedback', 'children', allow_duplicate=True),
     Output('login-password', 'value'),
+    Output('login-mfa-wrap', 'style'),
+    Output('login-mfa', 'value'),
     Input('login-btn', 'n_clicks'),
     Input('login-password', 'n_submit'),
+    Input('login-mfa', 'n_submit'),
     State('login-username', 'value'),
     State('login-password', 'value'),
+    State('login-mfa', 'value'),
     prevent_initial_call=True,
 )
-def do_login(n, submitted, username, password):
-    if not (n or submitted):
+def do_login(n, submitted, mfa_submitted, username, password, code):
+    if not (n or submitted or mfa_submitted):
         raise dash.exceptions.PreventUpdate
     if not username or not password:
-        return no_update, alert('Enter your username and password.'), no_update
+        return no_update, alert('Enter your username and password.'), no_update, no_update, no_update
     try:
-        token = core.accounts.login(username, password, client_ip())
+        token = core.accounts.login(username, password, client_ip(), code)
+    except MfaRequired as e:                       # password was right: ask for the code, keep the password
+        return no_update, alert(str(e), 'info'), no_update, SHOW, no_update
     except AppError as e:
-        return no_update, err(e), ''
-    return token, None, ''
+        # A mistyped 2FA code should not force the password to be typed again.
+        return no_update, err(e), (no_update if code else ''), no_update, ''
+    return token, None, '', HIDE, ''
 
 
 # ── first-run setup ──────────────────────────────────────────────────────

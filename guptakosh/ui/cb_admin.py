@@ -67,6 +67,7 @@ def admin_load(tab, _refresh, token):
     Input('inv-create', 'n_clicks'),
     Input('role-btn', 'n_clicks'),
     Input('reinvite-btn', 'n_clicks'),
+    Input('mfa-reset-btn', 'n_clicks'),
     Input('pol-save', 'n_clicks'),
     State('inv-username', 'value'),
     State('inv-display', 'value'),
@@ -84,7 +85,7 @@ def admin_load(tab, _refresh, token):
     State('session-token', 'data'),
     prevent_initial_call=True,
 )
-def admin_actions(inv, cancel, create, role_btn, reinvite, pol_save, username, display, email, inv_role,
+def admin_actions(inv, cancel, create, role_btn, reinvite, mfa_reset, pol_save, username, display, email, inv_role,
                   usel, urows, new_role, p_min, p_idle, p_att, p_lock, p_inv, ar, token):
     trig, N = ctx.triggered_id, no_update
     try:
@@ -105,7 +106,7 @@ def admin_actions(inv, cancel, create, role_btn, reinvite, pol_save, username, d
                                              'max_attempts': p_att, 'lockout_secs': p_lock,
                                              'invite_ttl_hours': p_inv})
             return N, N, N, N, N, alert('Policy saved.', 'success'), _bump(ar)
-        if trig in ('role-btn', 'reinvite-btn') and (role_btn or reinvite):
+        if trig in ('role-btn', 'reinvite-btn', 'mfa-reset-btn') and (role_btn or reinvite or mfa_reset):
             if not usel:
                 return N, N, N, N, N, alert('Select a person first.', 'warning'), N
             u = urows[usel[0]]
@@ -113,6 +114,10 @@ def admin_actions(inv, cancel, create, role_btn, reinvite, pol_save, username, d
                 core.accounts.set_role(token, u['id'], new_role)
                 return (N, N, N, N, N,
                         alert(f"{u['username']} is now {ORG_ROLE_LABEL[new_role].lower()}.", 'success'), _bump(ar))
+            if trig == 'mfa-reset-btn':
+                core.accounts.reset_totp(token, u['id'])
+                return (N, N, N, N, N, alert(f"Two-factor was reset for {u['username']}. They can sign in with "
+                                             "just their password and enrol again.", 'success'), _bump(ar))
             code = core.accounts.reissue_invite(token, u['id'])
             hours = core.accounts.get_policy()['invite_ttl_hours']
             return N, N, N, N, N, invite_alert(u['username'], code, hours), _bump(ar)

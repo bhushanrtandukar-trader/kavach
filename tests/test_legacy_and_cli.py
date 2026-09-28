@@ -104,6 +104,7 @@ def test_cli_backup_and_verify(core, owner, tmp_path):
     r = run_cli(data_dir, 'backup', str(dest))
     assert r.returncode == 0, r.stderr
     assert dest.exists() and dest.stat().st_size > 0
+    assert (tmp_path / 'snap.db.server.key').stat().st_size == 32
     assert run_cli(data_dir, 'backup', str(dest)).returncode != 0                # never overwrites
     r = run_cli(data_dir, 'verify-audit')
     assert r.returncode == 0 and 'OK' in r.stdout

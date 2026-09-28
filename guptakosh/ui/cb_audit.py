@@ -1,5 +1,6 @@
 """Audit log viewer and account (self-service) pane."""
 import dash
+import segno
 from dash import Input, Output, State, callback, ctx, html, no_update
 from datetime import datetime
 
@@ -90,3 +91,68 @@ def change_pw(n, old, new, confirm, token):
     except AppError as e:
         return err(e), no_update, no_update, no_update
     return alert('Password changed. Other devices have been signed out.', 'success'), '', '', ''
+
+
+# ── two-factor enrolment ─────────────────────────────────────────────────
+SHOWB, HIDEB = {'display': 'block'}, {'display': 'none'}
+
+
+def _mfa_state(me):
+    on = bool(me and me['totp_enabled'])
+    status = (alert('Two-factor authentication is ON. Signing in needs your password and a code from your app.',
+                    'success', className='mb-2 py-2') if on else
+              alert('Two-factor authentication is off. Turning it on protects your account even if your '
+                    'password leaks.', 'secondary', icon='fa-shield-alt', className='mb-2 py-2'))
+    return status, ({'display': 'none'} if on else {'display': 'inline-block'}), HIDEB, (SHOWB if on else HIDEB)
+
+
+@callback(
+    Output('mfa-status', 'children'),
+    Output('mfa-begin', 'style'),
+    Output('mfa-setup-box', 'style'),
+    Output('mfa-off-box', 'style'),
+    Output('mfa-qr', 'src'),
+    Output('mfa-secret', 'children'),
+    Output('mfa-feedback', 'children'),
+    Output('mfa-code', 'value'),
+    Output('mfa-off-password', 'value'),
+    Output('mfa-off-code', 'value'),
+    Input('me-store', 'data'),
+    Input('nav', 'active_tab'),
+    Input('mfa-begin', 'n_clicks'),
+    Input('mfa-confirm', 'n_clicks'),
+    Input('mfa-disable', 'n_clicks'),
+    State('mfa-code', 'value'),
+    State('mfa-off-password', 'value'),
+    State('mfa-off-code', 'value'),
+    State('session-token', 'data'),
+)
+def mfa_controller(me_store, tab, begin, confirm, disable, code, off_pw, off_code, token):
+    trig, N = ctx.triggered_id, no_update
+    if not token:
+        return '', HIDEB, HIDEB, HIDEB, '', '', None, '', '', ''
+    feedback = None
+    try:
+        if trig == 'mfa-begin' and begin:
+            secret, uri = core.accounts.totp_begin(token)
+            qr = segno.make(uri, error='m').svg_data_uri(scale=5, border=2)
+            status = _mfa_state(core.accounts.me(token))[0]
+            return status, HIDEB, SHOWB, HIDEB, qr, secret, None, '', '', ''
+        if trig == 'mfa-confirm' and confirm:
+            core.accounts.totp_confirm(token, code)
+            feedback = alert('Two-factor authentication is now on.', 'success')
+        elif trig == 'mfa-disable' and disable:
+            core.accounts.totp_disable(token, off_pw, off_code)
+            feedback = alert('Two-factor authentication was turned off.', 'success')
+        me = core.accounts.me(token)
+    except AppError as e:
+        try:
+            me = core.accounts.me(token)
+        except AppError:
+            return '', HIDEB, HIDEB, HIDEB, '', '', err(e), '', '', ''
+        status, begin_style, _, off_style = _mfa_state(me)
+        setup_open = trig == 'mfa-confirm'          # keep the box the user was working in open to retry
+        return (status, HIDEB if setup_open else begin_style, SHOWB if setup_open else HIDEB,
+                off_style, N, N, err(e), N, '', '')
+    status, begin_style, setup_style, off_style = _mfa_state(me)
+    return status, begin_style, setup_style, off_style, '', '', feedback, '', '', ''
