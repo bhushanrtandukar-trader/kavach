@@ -49,7 +49,7 @@ def _fix(r):
     if not acts:
         return _rep('Nothing stands out. Every account is in good shape, so there is nothing to fix today.', 'fix')
     total = sum(a['gain'] for a in acts)
-    return _rep(f"{len(acts)} action{'s' if len(acts) != 1 else ''} would improve your score the most (about +{total:.0f} points together).",
+    return _rep(f"{len(acts)} action{'s' if len(acts) != 1 else ''} would improve your score the most (about +{int(total + 0.5)} points together).",
                 'fix', [f"{a['title']}  (+{a['gain']} points): {a['why']}" for a in acts], [a['ref'] for a in acts])
 
 

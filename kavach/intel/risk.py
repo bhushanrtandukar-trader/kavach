@@ -211,41 +211,70 @@ def analyze(items, now: float | None = None, breached: dict | None = None) -> di
     label, color = next((lbl, col) for floor, lbl, col in SCORE_LABELS if score >= floor)
 
     # --- what to fix, and how many points each fix is worth ---
-    by_pw = {}
+    # Greedy: pick the fix worth the most, pretend it is done, re-score, repeat.  So fixing one of two accounts
+    # that share a password is not double-counted, and the gains add up to what re-scoring would really show.
+    by_pw, by_family = {}, {}
     for it in items:
-        by_pw.setdefault(it['password'], []).append(it)
+        by_pw.setdefault(it['password'], []).append(it['id'])
+        f = membership.get(it['id'], {}).get('family')
+        if f:
+            by_family.setdefault(f, []).append(it['id'])
+    pw_of = {it['id']: it['password'] for it in items}
+    family_of = {it['id']: membership.get(it['id'], {}).get('family') for it in items}
     fixed_p = probability(Ctx(a=STRONG, impact=0.3))
+    fixed_pw, mfa_on = set(), set()
+
+    def p_of(j):
+        cj, _ = ctxs[j]
+        has_mfa = cj.mfa or j in mfa_on
+        if j in fixed_pw:
+            return max(0.01, fixed_p * (MFA_FACTOR if has_mfa else 1.0))
+        reuse = sum(1 for k in by_pw[pw_of[j]] if k != j and k not in fixed_pw)
+        f = family_of[j]
+        variants = sum(1 for k in by_family.get(f, []) if k != j and k not in fixed_pw and pw_of[k] != pw_of[j]) if f else 0
+        c2 = Ctx(**{**cj.__dict__, 'reuse': reuse, 'variants': variants, 'mfa': has_mfa})
+        return probability(c2)
+
+    def affected(i):
+        out = {i, *by_pw[pw_of[i]]}
+        if family_of[i]:
+            out.update(by_family[family_of[i]])
+        return out
+
+    ent = {e['ref']['id']: e for e in entries}
     actions = []
-    for it in items:
-        c, cat = ctxs[it['id']]
-        delta = weights[it['id']] * (probs[it['id']] - fixed_p * (MFA_FACTOR if c.mfa else 1.0))
-        for j in items:
-            if j['id'] == it['id']:
-                continue
-            cj, _ = ctxs[j['id']]
-            if j['password'] == it['password']:
-                after = Ctx(**{**cj.__dict__, 'reuse': max(0, cj.reuse - 1)})
-            elif membership.get(j['id'], {}).get('family') and \
-                    membership.get(j['id'], {}).get('family') == membership.get(it['id'], {}).get('family'):
-                after = Ctx(**{**cj.__dict__, 'variants': max(0, cj.variants - 1)})
-            else:
-                continue
-            delta += weights[j['id']] * (probs[j['id']] - probability(after))
-        gain = 100 * delta / total_w
-        e = next(x for x in entries if x['ref']['id'] == it['id'])
-        if gain >= 0.3 and (e['priority'] != 'low' or e['risk'] >= 20):
-            actions.append({'kind': 'change_password', 'ref': e['ref'], 'gain': round(gain, 1),
-                            'title': f"Change your {it['service']} password", 'why': e['headline'],
-                            'priority': e['priority']})
-        if not c.mfa and c.impact >= 0.75:
-            g2 = 100 * weights[it['id']] * probs[it['id']] * (1 - MFA_FACTOR) / total_w
-            if g2 >= 0.3:
-                actions.append({'kind': 'enable_mfa', 'ref': e['ref'], 'gain': round(g2, 1),
-                                'title': f"Turn on two-factor for {it['service']}",
-                                'why': f"{CATEGORIES[cat]['label']} accounts are the most valuable to attackers; "
-                                       "two-factor stops a stolen password on its own.",
-                                'priority': e['priority']})
-    actions.sort(key=lambda a: -a['gain'])
+    for _ in range(8):
+        best = None
+        for it in items:
+            i = it['id']
+            c, cat = ctxs[i]
+            if i not in fixed_pw:
+                before = sum(weights[j] * p_of(j) for j in affected(i))
+                fixed_pw.add(i)
+                after = sum(weights[j] * p_of(j) for j in affected(i))
+                fixed_pw.discard(i)
+                gain = 100 * (before - after) / total_w
+                e = ent[i]
+                if gain >= 0.3 and (e['priority'] != 'low' or e['risk'] >= 20) and (best is None or gain > best[0]):
+                    best = (gain, 'change_password', i)
+            if not c.mfa and i not in mfa_on and c.impact >= 0.75:
+                g2 = 100 * weights[i] * p_of(i) * (1 - MFA_FACTOR) / total_w
+                if g2 >= 0.3 and (best is None or g2 > best[0]):
+                    best = (g2, 'enable_mfa', i)
+        if best is None:
+            break
+        gain, kind, i = best
+        e, (_, cat) = ent[i], ctxs[i]
+        if kind == 'change_password':
+            actions.append({'kind': kind, 'ref': e['ref'], 'gain': round(gain, 1), 'priority': e['priority'],
+                            'title': f"Change your {e['ref']['service']} password", 'why': e['headline']})
+            fixed_pw.add(i)
+        else:
+            actions.append({'kind': kind, 'ref': e['ref'], 'gain': round(gain, 1), 'priority': e['priority'],
+                            'title': f"Turn on two-factor for {e['ref']['service']}",
+                            'why': f"{CATEGORIES[cat]['label']} accounts are the most valuable to attackers; "
+                                   "two-factor stops a stolen password on its own."})
+            mfa_on.add(i)
 
     critical_accounts = sum(1 for c, _ in ctxs.values() if c.impact >= 0.9)
     summary = {
@@ -269,5 +298,5 @@ def analyze(items, now: float | None = None, breached: dict | None = None) -> di
                     + (" that differ only by numbers or symbols" if f['suffix_only'] else "")),
     } for f in fams]
     return {'score': score, 'label': label, 'color': color, 'total': len(items), 'summary': summary,
-            'entries': entries, 'families': family_out, 'actions': actions[:8],
+            'entries': entries, 'families': family_out, 'actions': actions,
             'breach_checked': breached is not None, 'generated_at': now}

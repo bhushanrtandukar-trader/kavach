@@ -2,10 +2,14 @@
 
 *Kavach* (कवच) — Sanskrit/Nepali for "armour".
 
-A self-hosted, multi-user password manager for teams. Every person has their own account and personal
-vault; teams share credentials through shared vaults with fine-grained roles; every sensitive action is
-audited. Python (FastAPI + SQLite) does all the security-critical work; the interface is a static
-**Next.js / React / TypeScript / Tailwind** app the same server serves.
+A self-hosted, multi-user password manager for teams that also tells you **which of your secrets need
+attention first, and why**. Every person has their own account and personal vault; teams share credentials
+through shared vaults with fine-grained roles; every sensitive action is audited. Python (FastAPI + SQLite)
+does all the security-critical work; the interface is a static **Next.js / React / TypeScript / Tailwind**
+app the same server serves.
+
+> *Private, explainable security intelligence: it analyses your passwords without learning them. Nothing
+> is sent to an outside AI, and every score can be traced to named factors.*
 
 > **Status: early / unaudited.** It has not had an independent security review. Read
 > [Limitations](#limitations) before storing anything you cannot afford to lose.
@@ -22,11 +26,20 @@ audited. Python (FastAPI + SQLite) does all the security-critical work; the inte
   protection and admin reset for lost phones.
 - **Audit log** — sign-ins, failures, lockouts, membership changes, and every password reveal/copy, in a
   hash chain so tampering is detectable.
-- **Vault health** — a local, explainable 0-100 score: weak (zxcvbn), reused, near-duplicate
-  (`Summer2024!`/`Summer2025!`) and stale passwords, plus an *opt-in* breach check via the HIBP k-anonymity
-  API (only a 5-character hash prefix leaves the server; off unless an admin enables it). Only verdicts are
-  returned, never passwords.
-- **Security insights** — adaptive anomaly detection on the audit log, judged against each person's own
+- **Security intelligence** — a risk score with reasons for every account ("This password is strong, but it
+  has been reused on 2 other accounts"), an impact-weighted vault score, and a ranked "these 3 actions help
+  most" list with the points each fix is worth. See [How the intelligence works](#how-the-intelligence-works).
+- **Password families** — variants like `Kathmandu@2025` / `Kathmandu@2026!` are detected, not just identical
+  passwords.
+- **Prioritisation** — priority = likelihood of compromise × how much the account matters (bank and email
+  before shopping), with aging, two-factor and breach severity folded in.
+- **Autofill risk engine** — for any address: *autofill*, *ask first*, or *block*, personalised to the sites you
+  have saved (a page imitating a saved login is blocked and names the login it imitates).
+- **Security advisor** — ask "How secure am I?" or "What should I fix today?" and get plain-language answers
+  built from the verdicts (no LLM, no secrets), plus a **security timeline** of how you are improving.
+- **Breach check (opt-in)** — HIBP k-anonymity lookup: only a 5-character hash prefix leaves the server, off
+  unless an admin enables it.
+- **Audit insights (for admins)** — adaptive anomaly detection on the audit log, judged against each person's own
   baseline: copy/reveal bursts, sign-ins from new addresses or at unusual hours, password spraying,
   success-after-failures, risky admin actions, lockouts. Statistical and explainable by design.
 - **Lookalike-URL warnings** (`paypa1.com`, homoglyph hosts, `paypal.com.evil.io`) and **typo-tolerant
@@ -76,6 +89,33 @@ The dev server runs on **3100** (not 3000) so it never clashes with other Next.j
 | `KAVACH_ALLOWED_ORIGINS` | Extra origins allowed to call the API (comma-separated) | none |
 | `KAVACH_DEV` | Dev mode: allow `localhost:3100`, serve `/api/docs` | off |
 
+## How the intelligence works
+
+Everything runs in-process on entries the signed-in person can already decrypt, and returns **verdicts
+only**: scores, counts and service names, never a password or a fragment of one.
+
+| Piece | How it works |
+|---|---|
+| Strength | [zxcvbn](https://github.com/dropbox/zxcvbn) pattern-based guessability (dictionary words, keyboard walks, dates, l33t, repeats) |
+| Risk | Noisy-OR of named factors: strength, patterns, predictable substitutions, personal details, reuse, password family, age, known breach; reduced when two-factor is marked on. Each factor has a plain-language explanation. |
+| Importance | Keyword rules infer an account's category from its name and URL (financial/identity 1.0 … forum 0.3) |
+| Priority | probability × importance → critical / high / medium / low |
+| Vault score | 100 × (1 − importance-weighted mean probability) |
+| Actions | Greedy: pick the fix worth the most, re-score as if done, repeat. The predicted gain is tested against actually re-scoring. |
+| Families | Trim numbers/symbols, fold `@→a 0→o …`, compare roots and string similarity |
+| Autofill decision | phishing signals from the URL text + a match against your saved sites |
+| Advisor | intent matching over the verdicts above |
+
+**Be honest about what this is.** It is rules and statistics, deliberately, not a neural network: there is no
+labelled data to train on, and every number here can be explained to a person. The factor probabilities are
+hand-calibrated. The design leaves room to swap in trained models (logistic regression, gradient boosting,
+anomaly detection) behind the same interface.
+
+**What it does not do (yet):** monitor whether your *email address* appears in breaches (needs a paid
+third-party API and would send identities out); look up domain age, TLS certificates or redirect chains (needs
+live network lookups on every site); or ship a browser extension (the decision engine at
+`POST /api/tools/site-check` is what an extension would call).
+
 ## Roles
 
 | Organisation role | Can |
@@ -102,8 +142,10 @@ browser ── Next.js static site (React, TypeScript, Tailwind) ──┐
 FastAPI (kavach/api) ── service layer (accounts, vaults, health, insights, …) ── SQLite (WAL)
 ```
 
-- `kavach/` — the tested core: `crypto.py`, `accounts.py`, `vaults.py`, `audit.py`, `health.py`,
-  `insights.py`, `phishing.py`, `search.py`, `totp.py`, …
+- `kavach/` — the tested core: `crypto.py`, `accounts.py`, `vaults.py`, `audit.py`, `insights.py`,
+  `phishing.py`, `search.py`, `totp.py`, …
+- `kavach/intel/` — the security-intelligence engine: `risk.py`, `families.py`, `categories.py`,
+  `siteguard.py`, `advisor.py`, `timeline.py`.
 - `kavach/api/` — thin FastAPI layer: routes, error mapping, CSRF/security-header middleware, and the
   static file server for the built interface.
 - `frontend/` — the Next.js app. API types are generated from the backend's OpenAPI schema so the two

@@ -20,7 +20,7 @@ const LABEL: Record<string, string> = {
   "user.change_password": "Changed password", "user.mfa_enable": "Turned on two-factor", "user.mfa_disable": "Turned off two-factor", "user.mfa_reset": "Reset someone's two-factor",
   "vault.create": "Created a vault", "vault.update": "Edited a vault", "vault.delete": "Deleted a vault", "vault.member_add": "Added someone to a vault",
   "vault.member_role": "Changed a vault role", "vault.member_remove": "Removed someone from a vault", "vault.rotate_key": "Replaced a vault key",
-  "vault.reveal_all": "Revealed all passwords", "vault.health_scan": "Ran a health check", "entry.create": "Added an entry", "entry.update": "Edited an entry",
+  "vault.reveal_all": "Revealed all passwords", "intel.scan": "Ran a security analysis", "entry.create": "Added an entry", "entry.update": "Edited an entry",
   "entry.delete": "Deleted entries", "entry.reveal": "Viewed a password", "entry.copy": "Copied a password", "policy.update": "Changed the security policy",
 };
 

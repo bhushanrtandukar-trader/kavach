@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EyeOff, Eye, HeartPulse, KeyRound, Lock, Plus, Search, SearchX, Trash2, Users, X } from "lucide-react";
+import { EyeOff, Eye, ShieldCheck, KeyRound, Lock, Plus, Search, SearchX, Trash2, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -205,9 +205,9 @@ export default function VaultsPage() {
               </span>
             </button>
           )}
-          <Link href="/health">
+          <Link href="/security">
             <Button variant="secondary">
-              <HeartPulse /> Health
+              <ShieldCheck /> Security
             </Button>
           </Link>
           {canWrite && (

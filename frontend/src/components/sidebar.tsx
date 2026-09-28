@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Activity, HeartPulse, KeyRound, Lock, LogOut, Plus, ScrollText, Settings2, ShieldCheck, Users } from "lucide-react";
+import { Activity, KeyRound, Lock, LogOut, Plus, ScrollText, Settings2, ShieldCheck, Users } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,7 +25,7 @@ interface NavItem {
 export function navItems(me: Me): NavItem[] {
   return [
     { href: "/vaults", label: "Vaults", icon: KeyRound, show: true },
-    { href: "/health", label: "Health", icon: HeartPulse, show: true },
+    { href: "/security", label: "Security", icon: ShieldCheck, show: true },
     { href: "/admin", label: "People & policy", icon: Users, show: canAdmin(me.role) },
     { href: "/audit", label: "Audit & insights", icon: ScrollText, show: canAudit(me.role) },
     { href: "/account", label: "Account", icon: Settings2, show: true },

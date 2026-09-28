@@ -438,17 +438,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/health": {
+    "/api/intel": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Health */
-        get: operations["health_api_health_get"];
+        /**
+         * Intel
+         * @description Risk verdicts for everything the caller can read: scores, priorities, families, actions. Never passwords.
+         *     `quiet` returns a cached result without recording an audit event or a timeline snapshot.
+         */
+        get: operations["intel_api_intel_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/intel/advisor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Advisor */
+        post: operations["advisor_api_intel_advisor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/intel/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Intel Timeline */
+        get: operations["intel_timeline_api_intel_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tools/site-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Site Check
+         * @description Would Kavach autofill here?  Phishing signals plus a match against the caller's saved sites.
+         */
+        post: operations["site_check_api_tools_site_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -691,6 +749,24 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** AdvisorIn */
+        AdvisorIn: {
+            /** Question */
+            question: string;
+        };
+        /** AdvisorOut */
+        AdvisorOut: {
+            /** Intent */
+            intent: string;
+            /** Answer */
+            answer: string;
+            /** Bullets */
+            bullets: string[];
+            /** Refs */
+            refs: components["schemas"]["EntryRef"][];
+            /** Suggestions */
+            suggestions: string[];
+        };
         /** AuditRow */
         AuditRow: {
             /** Id */
@@ -774,6 +850,11 @@ export interface components {
             url: string;
             /** Notes */
             notes: string;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
         };
         /** EntryIn */
         EntryIn: {
@@ -796,6 +877,11 @@ export interface components {
              * @default
              */
             notes: string;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
         };
         /** EntryMeta */
         EntryMeta: {
@@ -809,6 +895,11 @@ export interface components {
             url: string;
             /** Notes */
             notes: string;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
             /** Updated At */
             updated_at: number;
             /** Created At */
@@ -884,40 +975,6 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HealthEntry */
-        HealthEntry: {
-            ref: components["schemas"]["EntryRef"];
-            /** Health */
-            health: number;
-            /** Issues */
-            issues: components["schemas"]["Issue"][];
-        };
-        /** HealthReport */
-        HealthReport: {
-            /** Score */
-            score: number;
-            /** Label */
-            label: string;
-            /** Color */
-            color: string;
-            /** Total */
-            total: number;
-            /** Counts */
-            counts: {
-                [key: string]: unknown;
-            };
-            /** Entries */
-            entries: components["schemas"]["HealthEntry"][];
-            /** Breach Checked */
-            breach_checked: boolean;
-            /** Note */
-            note?: string | null;
-            /**
-             * Breach Allowed
-             * @default false
-             */
-            breach_allowed: boolean;
-        };
         /** IdsIn */
         IdsIn: {
             /** Ids */
@@ -931,6 +988,136 @@ export interface components {
             events_analysed: number;
             /** Days */
             days: number;
+        };
+        /** IntelAction */
+        IntelAction: {
+            /** Kind */
+            kind: string;
+            ref: components["schemas"]["EntryRef"];
+            /** Gain */
+            gain: number;
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
+            /** Priority */
+            priority: string;
+        };
+        /** IntelEntry */
+        IntelEntry: {
+            ref: components["schemas"]["EntryRef"];
+            /** Category */
+            category: string;
+            /** Category Label */
+            category_label: string;
+            /** Importance */
+            importance: string;
+            /** Risk */
+            risk: number;
+            /** Level */
+            level: string;
+            /** Priority */
+            priority: string;
+            /** Priority Score */
+            priority_score: number;
+            /** Factors */
+            factors: components["schemas"]["IntelFactor"][];
+            /** Headline */
+            headline: string;
+            /** Advice */
+            advice: string;
+            /** Reuse Count */
+            reuse_count: number;
+            /** Family */
+            family?: string | null;
+            /** Age Days */
+            age_days: number;
+            /** Exposure */
+            exposure: string;
+            /** Mfa */
+            mfa: boolean;
+            /** Strength */
+            strength: number;
+        };
+        /** IntelFactor */
+        IntelFactor: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /** P */
+            p: number;
+            /** Detail */
+            detail: string;
+        };
+        /** IntelFamily */
+        IntelFamily: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Size */
+            size: number;
+            /** Distinct */
+            distinct: number;
+            /** Suffix Only */
+            suffix_only: boolean;
+            /** Members */
+            members: components["schemas"]["EntryRef"][];
+            /** Summary */
+            summary: string;
+        };
+        /** IntelReport */
+        IntelReport: {
+            /** Score */
+            score: number;
+            /** Label */
+            label: string;
+            /** Color */
+            color: string;
+            /** Total */
+            total: number;
+            summary: components["schemas"]["IntelSummary"];
+            /** Entries */
+            entries: components["schemas"]["IntelEntry"][];
+            /** Families */
+            families: components["schemas"]["IntelFamily"][];
+            /** Actions */
+            actions: components["schemas"]["IntelAction"][];
+            /** Breach Checked */
+            breach_checked: boolean;
+            /**
+             * Breach Allowed
+             * @default false
+             */
+            breach_allowed: boolean;
+            /** Note */
+            note?: string | null;
+            /** Generated At */
+            generated_at: number;
+        };
+        /** IntelSummary */
+        IntelSummary: {
+            /** Accounts */
+            accounts: number;
+            /** Strong */
+            strong: number;
+            /** Reused */
+            reused: number;
+            /** Weak */
+            weak: number;
+            /** Families */
+            families: number;
+            /** Breached */
+            breached: number;
+            /** Old */
+            old: number;
+            /** Critical Accounts */
+            critical_accounts: number;
+            /** Critical Without Mfa */
+            critical_without_mfa: number;
+            /** Mfa Enabled */
+            mfa_enabled: number;
         };
         /** InviteIn */
         InviteIn: {
@@ -959,13 +1146,6 @@ export interface components {
             invite_code: string;
             /** Valid Hours */
             valid_hours: number;
-        };
-        /** Issue */
-        Issue: {
-            /** Kind */
-            kind: string;
-            /** Detail */
-            detail: string;
         };
         /** LoginIn */
         LoginIn: {
@@ -1132,6 +1312,11 @@ export interface components {
             url: string;
             /** Notes */
             notes: string;
+            /**
+             * Mfa
+             * @default false
+             */
+            mfa: boolean;
             /** Updated At */
             updated_at: number;
             /** Created At */
@@ -1167,6 +1352,36 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** SiteCheckOut */
+        SiteCheckOut: {
+            /** Url */
+            url: string;
+            /** Domain */
+            domain: string;
+            /** Risk */
+            risk: number;
+            /** Level */
+            level: string;
+            /** Decision */
+            decision: string;
+            /** Reasons */
+            reasons: string[];
+            /** Signals */
+            signals: components["schemas"]["SiteSignal"][];
+            /** Matches */
+            matches: components["schemas"]["EntryRef"][];
+            /** Impersonates */
+            impersonates: components["schemas"]["EntryRef"][];
+        };
+        /** SiteSignal */
+        SiteSignal: {
+            /** Code */
+            code: string;
+            /** Weight */
+            weight: number;
+            /** Message */
+            message: string;
+        };
         /** StrengthIn */
         StrengthIn: {
             /** Password */
@@ -1188,6 +1403,17 @@ export interface components {
             warning: string;
             /** Suggestions */
             suggestions: string[];
+        };
+        /** TimelineEvent */
+        TimelineEvent: {
+            /** Ts */
+            ts: number;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
         };
         /** UrlCheckIn */
         UrlCheckIn: {
@@ -2207,11 +2433,11 @@ export interface operations {
             };
         };
     };
-    health_api_health_get: {
+    intel_api_intel_get: {
         parameters: {
             query?: {
-                vault_id?: string | null;
                 breach?: boolean;
+                quiet?: boolean;
             };
             header?: never;
             path?: never;
@@ -2225,7 +2451,93 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HealthReport"];
+                    "application/json": components["schemas"]["IntelReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    advisor_api_intel_advisor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvisorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvisorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    intel_timeline_api_intel_timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineEvent"][];
+                };
+            };
+        };
+    };
+    site_check_api_tools_site_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UrlCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteCheckOut"];
                 };
             };
             /** @description Validation Error */

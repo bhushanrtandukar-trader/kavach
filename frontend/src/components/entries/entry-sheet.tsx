@@ -2,19 +2,21 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, FishSymbol, Globe, KeyRound, StickyNote, Trash2, User } from "lucide-react";
+import { AlertTriangle, FishSymbol, Globe, KeyRound, ShieldCheck, StickyNote, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PasswordGenerator } from "@/components/entries/password-generator";
 import { StrengthMeter } from "@/components/strength-meter";
+import { EntryRiskCard } from "@/components/security/parts";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/controls";
 import { SheetContent } from "@/components/ui/dialog";
 import { Field, Input, PasswordInput, Textarea } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/misc";
 import { api, ApiError, type EntryInput } from "@/lib/api";
 import { useDebounced } from "@/lib/hooks";
 
-const EMPTY: EntryInput = { service: "", username: "", password: "", url: "", notes: "" };
+const EMPTY: EntryInput = { service: "", username: "", password: "", url: "", notes: "", mfa: false };
 
 export interface SheetState {
   open: boolean;
@@ -59,8 +61,8 @@ export function EntrySheet({
 
   useEffect(() => {
     if (entry.data) {
-      const { service, username, password, url, notes } = entry.data;
-      setForm({ service, username, password, url, notes });
+      const { service, username, password, url, notes, mfa } = entry.data;
+      setForm({ service, username, password, url, notes, mfa: !!mfa });
     }
   }, [entry.data]);
 
@@ -70,6 +72,15 @@ export function EntrySheet({
       qc.removeQueries({ queryKey: ["entry", vaultId] });
     }
   }, [state.open, qc, vaultId]);
+
+  // How risky is this account? A quiet lookup (cached, unaudited); the full scan lives on the Security page.
+  const intel = useQuery({
+    queryKey: ["intel-quiet"],
+    queryFn: () => api.intel(false, true),
+    enabled: state.open && editing,
+    staleTime: 60_000,
+  });
+  const risk = intel.data?.entries.find((e) => e.ref.id === state.entryId);
 
   const urlWarn = useQuery({
     queryKey: ["url-check", useDebounced(form.url, 300)],
@@ -162,6 +173,22 @@ export function EntrySheet({
                     </div>
                   )}
                 </div>
+                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3">
+                  <span className="flex items-center gap-3">
+                    <ShieldCheck className="size-5 text-success" />
+                    <span>
+                      <span className="block text-sm font-medium">Two-factor is on for this account</span>
+                      <span className="block text-xs text-muted-foreground">Helps Kavach judge how exposed it really is.</span>
+                    </span>
+                  </span>
+                  <Switch checked={!!form.mfa} disabled={readOnly} onCheckedChange={(c) => setForm((f) => ({ ...f, mfa: c }))} />
+                </label>
+                {editing && risk && (
+                  <div className="rounded-2xl border bg-muted/40 p-4">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Security assessment</div>
+                    <EntryRiskCard entry={risk} compact />
+                  </div>
+                )}
                 <Field label="Notes">
                   <div className="relative">
                     <StickyNote className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-muted-foreground" />

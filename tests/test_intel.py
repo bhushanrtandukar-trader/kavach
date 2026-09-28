@@ -154,6 +154,29 @@ def test_predicted_gain_matches_reality():
     assert before['actions'][0]['gain'] >= before['actions'][-1]['gain']
 
 
+def test_shared_password_fix_is_not_double_counted():
+    """Two accounts share a password: fixing one resolves the reuse on the other, so the second action
+    must be worth less than the first (it used to be listed at the same value)."""
+    items = [it(0, 'Nabil Bank', STRONG[0]), it(1, 'Jenkins', STRONG[0]), it(2, 'Fine', STRONG[1])]
+    acts = [a for a in analyze(items, NOW)['actions'] if a['kind'] == 'change_password']
+    assert len(acts) >= 1
+    if len(acts) == 2:
+        assert acts[1]['gain'] < acts[0]['gain']
+
+
+def test_top_actions_together_match_re_scoring():
+    items = [it(0, 'Gmail', 'Kathmandu@2025', age=430), it(1, 'Amazon', 'Kathmandu@2026!'),
+             it(2, 'Facebook', 'Kathmandu@2026'), it(3, 'Old forum', 'password123'), it(4, 'Nabil Bank', STRONG[0]),
+             it(5, 'Jenkins', STRONG[0]), it(6, 'GitHub', 'olivia-github-2020')]
+    before = analyze(items, NOW)
+    top = [a for a in before['actions'] if a['kind'] == 'change_password'][:3]
+    fixed_ids = {a['ref']['id'] for a in top}
+    fresh = iter(['Lp5#rT8@kD3!nB6$', 'Ye2$hG9&wA4*cV7%', 'Rb7!uJ4^sM1#fQ8@', 'Vx3&oC6$eZ9!gK2*'])   # unrelated to each other
+    fixed = [{**i, 'password': next(fresh), 'password_changed_at': NOW} if i['id'] in fixed_ids else i for i in items]
+    after = analyze(fixed, NOW)
+    assert after['score'] - before['score'] == pytest.approx(sum(a['gain'] for a in top), abs=2.5)
+
+
 def test_two_factor_actions_only_for_valuable_accounts():
     rep = analyze([it(0, 'Nabil Bank', 'password123'), it(1, 'Netflix', 'password123')], NOW)
     kinds = {(a['kind'], a['ref']['service']) for a in rep['actions']}

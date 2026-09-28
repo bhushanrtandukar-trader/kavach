@@ -12,7 +12,14 @@ export type EntryInput = S["EntryIn"];
 export type SearchHit = S["SearchHit"];
 export type Strength = S["StrengthOut"];
 export type UrlWarning = S["UrlWarning"];
-export type HealthReport = S["HealthReport"];
+export type IntelReport = S["IntelReport"];
+export type IntelEntry = S["IntelEntry"];
+export type IntelFamily = S["IntelFamily"];
+export type IntelAction = S["IntelAction"];
+export type IntelRef = S["EntryRef"];
+export type AdvisorAnswer = S["AdvisorOut"];
+export type SiteCheck = S["SiteCheckOut"];
+export type TimelineEvent = S["TimelineEvent"];
 export type Finding = S["Finding"];
 export type Insights = S["Insights"];
 export type UserRow = S["UserOut"];
@@ -137,8 +144,13 @@ export const api = {
   generate: (o: { length: number; digits: boolean; symbols: boolean; ambiguous: boolean }) =>
     post<{ password: string }>("/tools/generate", o),
 
-  // health & insights
-  health: (vaultId: string | null, breach: boolean) => get<HealthReport>(`/health${qs({ vault_id: vaultId, breach })}`),
+  // security intelligence
+  intel: (breach = false, quiet = false) => get<IntelReport>(`/intel${qs({ breach, quiet })}`),
+  advisor: (question: string) => post<AdvisorAnswer>("/intel/advisor", { question }),
+  timeline: () => get<TimelineEvent[]>("/intel/timeline"),
+  siteCheck: (url: string) => post<SiteCheck>("/tools/site-check", { url }),
+
+  // audit insights
   insights: (days = 7) => get<Insights>(`/insights${qs({ days })}`),
 
   // admin

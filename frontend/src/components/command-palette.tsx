@@ -3,7 +3,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
-import { Copy, HeartPulse, KeyRound, Lock, LogOut, Moon, Plus, ScrollText, Search, Settings2, Sun, Users } from "lucide-react";
+import { Copy, ShieldCheck, KeyRound, Lock, LogOut, Moon, Plus, ScrollText, Search, Settings2, Sun, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -133,8 +133,8 @@ export function CommandPalette({ me }: { me: Me }) {
                 <Command.Item className={item} onSelect={() => go(() => router.push("/vaults"))}>
                   <KeyRound /> Vaults
                 </Command.Item>
-                <Command.Item className={item} onSelect={() => go(() => router.push("/health"))}>
-                  <HeartPulse /> Vault health
+                <Command.Item className={item} onSelect={() => go(() => router.push("/security"))}>
+                  <ShieldCheck /> Security intelligence
                 </Command.Item>
                 {canAdmin(me.role) && (
                   <Command.Item className={item} onSelect={() => go(() => router.push("/admin"))}>
