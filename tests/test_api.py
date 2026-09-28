@@ -148,7 +148,7 @@ def test_dev_mode_allows_the_next_dev_server(core, site):
     app = create_app(core, frontend_dir=site, dev=True)
     c = TestClient(app, headers=H)
     assert c.post('/api/auth/login', json={'username': 'olivia', 'password': PW},
-                  headers={'Origin': 'http://localhost:3000'}).status_code == 200
+                  headers={'Origin': 'http://localhost:3100'}).status_code == 200
 
 
 def test_security_headers(app):
@@ -201,12 +201,11 @@ def test_search_is_typo_tolerant_everywhere(olivia):
 def test_tools(olivia, app):
     g = olivia.post('/api/tools/generate', json={'length': 24, 'symbols': False, 'ambiguous': False}).json()['password']
     assert len(g) == 24 and g.isalnum() and not set('O0oIl1') & set(g)
-    s = olivia.post('/api/tools/strength', json={'password': 'password123'}).json()
-    assert s['score'] <= 1 and s['label'] and s['crack_time']
+    s = olivia.post('/api/auth/strength', json={'password': 'password123'}).json()
+    assert s['score'] <= 1 and s['label'] and s['crack_time'] and 'password123' not in str(s)
     w = olivia.post('/api/tools/url-check', json={'url': 'https://paypa1.com'}).json()
     assert w and w[0]['level'] == 'danger'
-    for path, body in (('/api/tools/generate', {}), ('/api/tools/strength', {'password': 'x'}),
-                       ('/api/tools/url-check', {'url': 'x'})):
+    for path, body in (('/api/tools/generate', {}), ('/api/tools/url-check', {'url': 'x'})):
         assert browser(app).post(path, json=body).status_code == 401              # signed-in users only
 
 
@@ -340,3 +339,12 @@ def test_missing_build_gives_a_helpful_503(core, tmp_path):
     r = TestClient(app).get('/')
     assert r.status_code == 503 and 'npm run build' in r.text
     assert TestClient(app).get('/api/auth/status').status_code == 200        # the API still works
+
+
+def test_public_strength_meter_works_signed_out_and_is_rate_limited(app):
+    c = browser(app)                                          # not signed in
+    assert c.post('/api/auth/strength', json={'password': 'xK9#mQ2$vL7@pR4!'}).json()['score'] == 4
+    hits = [c.post('/api/auth/strength', json={'password': 'abc'}).status_code for _ in range(70)]
+    assert 429 in hits
+    r = c.post('/api/auth/strength', json={'password': 'abc'})
+    assert r.status_code == 429 and r.json()['error']['code'] == 'rate_limited' and r.json()['error']['retry_after'] > 0

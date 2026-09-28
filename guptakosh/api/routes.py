@@ -65,6 +65,17 @@ def logout(request: Request, response: Response, core: Core = Depends(get_core))
     return S.Ok()
 
 
+@router.post('/auth/strength', response_model=S.StrengthOut, tags=['auth'])
+def strength(body: S.StrengthIn, request: Request):
+    """Password strength for the sign-up / invite screens, where nobody is signed in yet.
+    Public, so it is rate limited and the password is never stored or logged."""
+    request.app.state.strength_limiter.check(client_ip(request))
+    a = assess(body.password, body.inputs)
+    pct, label, _ = password_strength(body.password, body.inputs)
+    return S.StrengthOut(score=a['score'], percent=pct, label=label, crack_time=a['crack_time'],
+                         warning=a['warning'], suggestions=a['suggestions'])
+
+
 @router.post('/auth/ping', response_model=S.Ok, tags=['auth'])
 def ping(body: S.PingIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
     """The browser reports how long the user has been idle (measured on its own clock).  Active users
@@ -204,15 +215,6 @@ def global_search(q: str = Query('', max_length=200), limit: int = Query(20, ge=
 
 
 # ══════════════════════════ tools ══════════════════════════
-@router.post('/tools/strength', response_model=S.StrengthOut, tags=['tools'])
-def strength(body: S.StrengthIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
-    core.sessions.get(token)          # signed-in users only: zxcvbn on arbitrary input is not free
-    a = assess(body.password, body.inputs)
-    pct, label, _ = password_strength(body.password, body.inputs)
-    return S.StrengthOut(score=a['score'], percent=pct, label=label, crack_time=a['crack_time'],
-                         warning=a['warning'], suggestions=a['suggestions'])
-
-
 @router.post('/tools/url-check', response_model=List[S.UrlWarning], tags=['tools'])
 def url_check(body: S.UrlCheckIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
     core.sessions.get(token)

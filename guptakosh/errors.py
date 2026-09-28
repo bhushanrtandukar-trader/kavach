@@ -25,6 +25,12 @@ class LockedOut(AppError):
         self.remaining = remaining
 
 
+class RateLimited(AppError):
+    def __init__(self, retry_after=60):
+        super().__init__('Too many requests. Please slow down.')
+        self.retry_after = retry_after
+
+
 class SessionExpired(AppError):
     def __init__(self, message='Your session has expired. Please sign in again.'):
         super().__init__(message)

@@ -38,3 +38,5 @@ guptakosh.db
 server.key
 guptakosh.db-*
 data/
+
+frontend/openapi.json

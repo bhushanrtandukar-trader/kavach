@@ -9,7 +9,7 @@ from .. import config
 
 def main():
     ap = argparse.ArgumentParser(description='Run Guptakosh')
-    ap.add_argument('--dev', action='store_true', help='allow the Next.js dev server on :3000 and enable /api/docs')
+    ap.add_argument('--dev', action='store_true', help='allow the Next.js dev server on :3100 and enable /api/docs')
     ap.add_argument('--host', default=config.HOST)
     ap.add_argument('--port', type=int, default=config.PORT)
     args = ap.parse_args()

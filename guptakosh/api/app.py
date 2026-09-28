@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from .. import config
 from ..core import Core
 from . import errors, middleware
+from .ratelimit import RateLimiter
 from .routes import router
 
 FRONTEND_DIR = Path(os.environ.get('GUPTAKOSH_FRONTEND_DIR') or Path(__file__).resolve().parents[2] / 'frontend' / 'out')
@@ -25,13 +26,14 @@ def create_app(core: Optional[Core] = None, *, dev: Optional[bool] = None, front
     app = FastAPI(title='Guptakosh API', version='1.0', docs_url='/api/docs' if dev else None,
                   redoc_url=None, openapi_url='/api/openapi.json' if dev else None)
     app.state.core = core or Core(config.DATA_DIR)
+    app.state.strength_limiter = RateLimiter(60, 60)      # public strength meter: 60 calls / minute / address
     app.state.trust_proxy = _env_flag('GUPTAKOSH_TRUST_PROXY') if trust_proxy is None else trust_proxy
     app.state.cookie_secure = cookie_secure if cookie_secure is not None else (
         True if _env_flag('GUPTAKOSH_COOKIE_SECURE') else None)
 
     origins = [o for o in os.environ.get('GUPTAKOSH_ALLOWED_ORIGINS', '').split(',') if o.strip()]
-    if dev:                                            # `next dev` on :3000 proxies to us
-        origins += ['http://localhost:3000', 'http://127.0.0.1:3000']
+    if dev:                                            # `next dev` on :3100 proxies to us
+        origins += ['http://localhost:3100', 'http://127.0.0.1:3100']
     middleware.install(app, origins)
     errors.install(app)
     app.include_router(router)
@@ -61,7 +63,7 @@ def _resolve(root: Path, url_path: str) -> Optional[Path]:
 def _mount_frontend(app: FastAPI, root: Path):
     root = root.resolve()
 
-    @app.get('/{path:path}', include_in_schema=False)
+    @app.api_route('/{path:path}', methods=['GET', 'HEAD'], include_in_schema=False)
     def frontend(path: str, request: Request):
         if not root.is_dir():
             return JSONResponse({'message': 'The web interface has not been built yet. '

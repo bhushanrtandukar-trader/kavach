@@ -9,6 +9,7 @@ from .. import errors as e
 _MAP = (
     (e.MfaRequired, 401, 'mfa_required'),
     (e.LockedOut, 429, 'locked_out'),
+    (e.RateLimited, 429, 'rate_limited'),
     (e.AuthError, 401, 'auth_failed'),
     (e.SessionExpired, 401, 'session_expired'),
     (e.Forbidden, 403, 'forbidden'),
@@ -28,7 +29,8 @@ def install(app: FastAPI):
     async def app_error(request: Request, exc: e.AppError):
         for cls, status, code in _MAP:
             if isinstance(exc, cls):
-                extra = {'retry_after': exc.remaining} if isinstance(exc, e.LockedOut) else {}
+                extra = ({'retry_after': exc.remaining} if isinstance(exc, e.LockedOut)
+                         else {'retry_after': exc.retry_after} if isinstance(exc, e.RateLimited) else {})
                 return JSONResponse(_body(code, str(exc), **extra), status_code=status)
         return JSONResponse(_body('bad_request', str(exc)), status_code=400)
 
