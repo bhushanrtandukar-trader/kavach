@@ -5,6 +5,7 @@ from dash import Input, Output, State, callback, clientside_callback, ctx, html,
 from .. import perms
 from ..accounts import fmt_ts
 from ..errors import AppError
+from .. import phishing, search as fuzzy
 from ..passwords import generate_password, password_strength
 from .context import HIDE_LABEL, SHOW_LABEL, VAULT_ROLE_LABEL, alert, core, err, role_badge
 from .theme import _service_abbrev, get_icon_html
@@ -98,17 +99,15 @@ def vault_meta(vid, vaults, me):
 def update_table(entries, search, revealed):
     entries = entries or []
     all_services = [e.get('service', '') for e in entries]
+    shown = fuzzy.rank(entries, search or '')            # typo-tolerant, best match first
     rows = []
-    for e in entries:
+    for e in shown:
         svc = e.get('service', '')
         pw = MASK if not revealed else revealed.get(e['id'], MASK)
         rows.append({'_eid': e['id'], 'icon': get_icon_html(svc, _service_abbrev(svc, all_services)),
                      'service': svc, 'username': e.get('username', ''), 'url': e.get('url', ''),
                      'notes': e.get('notes', ''), 'updated': fmt_ts(e.get('updated_at')),
                      'password_display': pw})
-    if search:
-        s = search.lower()
-        rows = [r for r in rows if any(s in (r[k] or '').lower() for k in ('service', 'username', 'url', 'notes'))]
     empty = ''
     if not entries:
         empty = 'No entries yet.'
@@ -272,6 +271,18 @@ def save_entry(n, service, username, password, url, notes, edit_id, vid, er, vr,
 )
 def generate(n):
     return generate_password(16) if n else no_update
+
+
+@callback(
+    Output('f-url-warning', 'children'),
+    Input('f-url', 'value'),
+    prevent_initial_call=True,
+)
+def url_check(url):
+    return [alert(w['message'], 'danger' if w['level'] == 'danger' else 'warning',
+                  icon='fa-fish' if w['level'] == 'danger' else 'fa-exclamation-triangle',
+                  className='mt-2 mb-0 py-2 small')
+            for w in phishing.check_url(url or '')]
 
 
 @callback(

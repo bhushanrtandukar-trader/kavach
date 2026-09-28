@@ -25,5 +25,6 @@ Thumbs.db
 
 # Multi-user database
 guptakosh.db
+server.key
 guptakosh.db-*
 data/

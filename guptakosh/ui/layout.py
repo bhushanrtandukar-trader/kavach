@@ -92,6 +92,7 @@ def _entry_modal():
                 dbc.Col(_field("Username / email", "fa-user", dbc.Input(id='f-username', autoComplete='off')), width=6),
                 dbc.Col(_field("URL", "fa-link", dbc.Input(id='f-url', placeholder="https://")), width=6),
             ]),
+            html.Div(id='f-url-warning'),
             _field("Password", "fa-key", dbc.InputGroup([
                 dbc.Input(id='f-password', type='text', autoComplete='off'),
                 dbc.Button([html.I(className="fas fa-magic me-1"), "Generate"], id='generate-btn',

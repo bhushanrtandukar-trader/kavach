@@ -24,6 +24,18 @@ credentials through shared vaults with fine-grained roles; every sensitive actio
   protection and admin reset for lost phones.
 - **Password strength** — [zxcvbn](https://github.com/dropbox/zxcvbn) pattern-based scoring for the
   master password policy and the entry strength meter.
+- **Vault health** — a local, explainable 0-100 score per vault (or across all your vaults): weak,
+  reused, near-duplicate (`Summer2024!`/`Summer2025!`) and stale passwords, plus an *opt-in* breach check
+  using the HIBP k-anonymity API (only a 5-character hash prefix leaves the server; off unless an admin
+  enables it). Only verdicts are returned, never passwords.
+- **Security insights** — adaptive anomaly detection on the audit log, judged against each person's own
+  baseline: copy/reveal bursts, sign-ins from new addresses or at unusual hours, password spraying,
+  success-after-failures, risky admin actions, lockouts. Statistical and explainable by design (a small
+  audit log does not justify a black-box model); every finding says why it fired.
+- **Lookalike-URL warnings** — saving `paypa1.com`, a Cyrillic-`а` `аpple.com`, or
+  `paypal.com.evil.io` shows a warning (advisory; never blocks).
+- **Typo-tolerant search** — `gthub` finds GitHub; searches names, usernames, URLs and notes, never
+  passwords.
 - **Ops tooling** — `manage.py backup`, `verify-audit`, `import-legacy`.
 
 ## Roles
@@ -93,6 +105,8 @@ It asks for the old master and secondary passwords, reads the old `config.json`/
   the whole database can rewrite the whole chain; forward the log elsewhere if that matters to you.
 - Two-factor seeds are the one secret the server must read, so they are encrypted with `server.key`, kept
   apart from the database. Back the two up separately (`manage.py backup` writes both).
+- Security insights use the sign-in IP the server sees; behind a reverse proxy that is the proxy's
+  address unless you configure forwarded headers, which weakens the location-based detectors.
 - Failed-login lockout is per account, so someone can deliberately lock a colleague out for a few minutes.
 
 ## Limitations
