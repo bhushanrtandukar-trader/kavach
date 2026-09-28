@@ -3,7 +3,6 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from .. import health as health_mod
 from .. import phishing, search
 from ..errors import AppError, MfaRequired
 from ..passwords import assess, generate_password, password_strength
@@ -227,15 +226,28 @@ def generate(body: S.GenerateIn, token: str = Depends(token_of), core: Core = De
     return S.Generated(password=generate_password(body.length, body.digits, body.symbols, body.ambiguous))
 
 
-# ══════════════════════════ health ══════════════════════════
-@router.get('/health', response_model=S.HealthReport, tags=['health'])
-def health(vault_id: Optional[str] = None, breach: bool = False, token: str = Depends(token_of),
-           core: Core = Depends(get_core)):
-    allowed = bool(core.accounts.get_policy().get('breach_check'))
-    rep = health_mod.report(core, token, vault_id, include_breach=breach and allowed)
-    return S.HealthReport(score=rep['score'], label=rep['label'], color=rep['color'], total=rep['total'],
-                          counts=rep['counts'], entries=rep['entries'], breach_checked=rep['breach_checked'],
-                          note=rep.get('note'), breach_allowed=allowed)
+# ══════════════════════════ security intelligence ══════════════════════════
+@router.get('/intel', response_model=S.IntelReport, tags=['intel'])
+def intel(breach: bool = False, quiet: bool = False, token: str = Depends(token_of), core: Core = Depends(get_core)):
+    """Risk verdicts for everything the caller can read: scores, priorities, families, actions. Never passwords.
+    `quiet` returns a cached result without recording an audit event or a timeline snapshot."""
+    return core.intel.report(token, breach=breach, quiet=quiet)
+
+
+@router.post('/intel/advisor', response_model=S.AdvisorOut, tags=['intel'])
+def advisor(body: S.AdvisorIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
+    return core.intel.advise(token, body.question)
+
+
+@router.get('/intel/timeline', response_model=List[S.TimelineEvent], tags=['intel'])
+def intel_timeline(token: str = Depends(token_of), core: Core = Depends(get_core)):
+    return core.intel.timeline(token)
+
+
+@router.post('/tools/site-check', response_model=S.SiteCheckOut, tags=['intel'])
+def site_check(body: S.UrlCheckIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
+    """Would Kavach autofill here?  Phishing signals plus a match against the caller's saved sites."""
+    return core.intel.site_check(token, body.url)
 
 
 # ══════════════════════════ people & organisation ══════════════════════════

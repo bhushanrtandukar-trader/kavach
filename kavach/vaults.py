@@ -39,6 +39,7 @@ def clean_entry(fields: dict) -> dict:
         if len(v) > LIMITS[k]:
             raise ValidationError(f'{k.capitalize()} is too long (max {LIMITS[k]}).')
         out[k] = v
+    out['mfa'] = bool(fields.get('mfa'))
     if not out['service']:
         raise ValidationError('Service is required.')
     if not out['password']:
@@ -277,11 +278,11 @@ class Vaults:
                     d = _decrypt_entry(key, vault_id, r['id'], r['blob'])
                 except (crypto.DecryptError, ValueError):
                     out.append({'id': r['id'], 'service': '(unreadable entry)', 'username': '', 'url': '',
-                                'notes': '', 'updated_at': r['updated_at'], 'created_at': r['created_at'],
-                                'corrupt': True})
+                                'notes': '', 'mfa': False, 'updated_at': r['updated_at'],
+                                'created_at': r['created_at'], 'corrupt': True})
                     continue
                 out.append({'id': r['id'], 'service': d.get('service', ''), 'username': d.get('username', ''),
-                            'url': d.get('url', ''), 'notes': d.get('notes', ''),
+                            'url': d.get('url', ''), 'notes': d.get('notes', ''), 'mfa': bool(d.get('mfa')),
                             'updated_at': r['updated_at'], 'created_at': r['created_at'],
                             'password_changed_at': d.get('password_changed_at', r['created_at']),
                             'corrupt': False})
@@ -302,7 +303,7 @@ class Vaults:
             s, u, m, key = self._open(c, token, vault_id, 'read')
             _, d = self._load_entry(c, key, vault_id, entry_id)
             audit.log(c, 'entry.reveal', who(u), f'{vault_id}/{entry_id}', m['name'], s.ip)
-            return {'id': entry_id, **{k: d.get(k, '') for k in ENTRY_FIELDS}}
+            return {'id': entry_id, **{k: d.get(k, '') for k in ENTRY_FIELDS}, 'mfa': bool(d.get('mfa'))}
 
     def get_password(self, token, vault_id, entry_id, purpose='copy'):
         with self.db.tx() as c:
@@ -338,9 +339,10 @@ class Vaults:
                 out.append({'id': r['id'], 'updated_at': r['updated_at'], **d})
             return out
 
-    def collect_for_health(self, token, vault_id=None):
+    def collect_for_analysis(self, token, vault_id=None, audit_scan=True):
         """Decrypt every entry the caller can read (one vault, or all their vaults) for in-process
-        analysis.  Callers must return verdicts only.  Recorded in the audit log as a single event."""
+        analysis.  Callers must return verdicts only.  Recorded in the audit log as a single event
+        (unless `audit_scan` is False for a quiet, cached lookup)."""
         with self.db.tx() as c:
             s, u = load_actor(c, self.sessions, token)
             if vault_id:
@@ -359,9 +361,10 @@ class Vaults:
                     items.append({'id': r['id'], 'vault_id': vid,
                                   'vault': 'Personal' if m['kind'] == 'personal' else m['name'],
                                   'service': d.get('service', ''), 'username': d.get('username', ''),
-                                  'password': d.get('password', ''),
+                                  'password': d.get('password', ''), 'mfa': bool(d.get('mfa')),
                                   'password_changed_at': d.get('password_changed_at', r['created_at'])})
-            audit.log(c, 'vault.health_scan', who(u), vault_id or 'all', f'{len(items)} entries', s.ip)
+            if audit_scan:
+                audit.log(c, 'intel.scan', who(u), vault_id or 'all', f'{len(items)} entries', s.ip)
             return items
 
     def collect_metadata(self, token, vault_id=None):
@@ -383,6 +386,7 @@ class Vaults:
                         continue
                     out.append({'id': r['id'], 'vault_id': vid, 'vault': vname, 'service': d.get('service', ''),
                                 'username': d.get('username', ''), 'url': d.get('url', ''), 'notes': d.get('notes', ''),
+                                'mfa': bool(d.get('mfa')),
                                 'updated_at': r['updated_at'], 'created_at': r['created_at'],
                                 'password_changed_at': d.get('password_changed_at', r['created_at']), 'corrupt': False})
             return out
@@ -396,6 +400,7 @@ class Vaults:
             c.execute('INSERT INTO entries(id, vault_id, blob, created_at, updated_at) VALUES (?,?,?,?,?)',
                       (eid, vault_id, _encrypt_entry(key, vault_id, eid, data), now, now))
             audit.log(c, 'entry.create', who(u), f'{vault_id}/{eid}', m['name'], s.ip)
+            s.cache.clear()
             return eid
 
     def update_entry(self, token, vault_id, entry_id, fields):
@@ -409,7 +414,10 @@ class Vaults:
                                            else old.get('password_changed_at', r['created_at']))
             c.execute('UPDATE entries SET blob=?, updated_at=? WHERE id=?',
                       (_encrypt_entry(key, vault_id, entry_id, data), now, entry_id))
-            audit.log(c, 'entry.update', who(u), f'{vault_id}/{entry_id}', m['name'], s.ip)
+            changed = old.get('password') != data['password']
+            audit.log(c, 'entry.update', who(u), f'{vault_id}/{entry_id}',
+                      m['name'] + (' (password changed)' if changed else ''), s.ip)
+            s.cache.clear()
 
     def delete_entries(self, token, vault_id, entry_ids):
         with self.db.tx() as c:
@@ -418,4 +426,5 @@ class Vaults:
             for eid in set(entry_ids):
                 n += c.execute('DELETE FROM entries WHERE id=? AND vault_id=?', (eid, vault_id)).rowcount
             audit.log(c, 'entry.delete', who(u), vault_id, f"{m['name']} ({n} entries)", s.ip)
+            s.cache.clear()
             return n

@@ -3,7 +3,7 @@ import contextlib
 import os
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -66,6 +66,21 @@ CREATE TABLE IF NOT EXISTS entries (
 );
 CREATE INDEX IF NOT EXISTS entries_vault ON entries(vault_id);
 
+CREATE TABLE IF NOT EXISTS security_snapshots (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id              TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ts                   REAL NOT NULL,
+    score                INTEGER NOT NULL,
+    accounts             INTEGER NOT NULL,
+    reused               INTEGER NOT NULL,
+    weak                 INTEGER NOT NULL,
+    breached             INTEGER NOT NULL,
+    old                  INTEGER NOT NULL,
+    families             INTEGER NOT NULL,
+    critical_without_mfa INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS snapshots_user ON security_snapshots(user_id, ts);
+
 CREATE TABLE IF NOT EXISTS audit (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     ts         REAL NOT NULL,
@@ -108,6 +123,8 @@ class Database:
             if 'totp_last_step' not in cols:
                 conn.execute('ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0')
             conn.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+        if version < 3:                      # new table is created by SCHEMA (IF NOT EXISTS)
+            conn.execute("UPDATE meta SET value='3' WHERE key='schema_version'")
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=30, isolation_level=None)

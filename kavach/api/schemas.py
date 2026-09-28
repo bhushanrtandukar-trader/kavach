@@ -110,6 +110,7 @@ class EntryIn(Strict):
     password: str = Field(max_length=1000)
     url: str = Field('', max_length=500)
     notes: str = Field('', max_length=5000)
+    mfa: bool = False
 
 
 class EntryMeta(Model):
@@ -118,6 +119,7 @@ class EntryMeta(Model):
     username: str
     url: str
     notes: str
+    mfa: bool = False
     updated_at: float
     created_at: float
     password_changed_at: Optional[float] = None
@@ -131,6 +133,7 @@ class EntryFull(Model):
     password: str
     url: str
     notes: str
+    mfa: bool = False
 
 
 class EntryCreated(Model):
@@ -193,7 +196,7 @@ class Generated(Model):
     password: str
 
 
-# ── health / insights ────────────────────────────────────────────────────
+# ── security intelligence ────────────────────────────────────────────────
 class EntryRef(Model):
     id: str
     vault_id: str
@@ -202,29 +205,118 @@ class EntryRef(Model):
     username: str
 
 
-class Issue(Model):
-    kind: str
+class IntelFactor(Model):
+    code: str
+    label: str
+    p: float
     detail: str
 
 
-class HealthEntry(Model):
+class IntelEntry(Model):
     ref: EntryRef
-    health: int
-    issues: List[Issue]
+    category: str
+    category_label: str
+    importance: str
+    risk: int
+    level: str
+    priority: str
+    priority_score: float
+    factors: List[IntelFactor]
+    headline: str
+    advice: str
+    reuse_count: int
+    family: Optional[str] = None
+    age_days: int
+    exposure: str
+    mfa: bool
+    strength: int
 
 
-class HealthReport(Model):
+class IntelFamily(Model):
+    id: str
+    kind: str
+    size: int
+    distinct: int
+    suffix_only: bool
+    members: List[EntryRef]
+    summary: str
+
+
+class IntelAction(Model):
+    kind: str
+    ref: EntryRef
+    gain: float
+    title: str
+    why: str
+    priority: str
+
+
+class IntelSummary(Model):
+    accounts: int
+    strong: int
+    reused: int
+    weak: int
+    families: int
+    breached: int
+    old: int
+    critical_accounts: int
+    critical_without_mfa: int
+    mfa_enabled: int
+
+
+class IntelReport(Model):
     score: int
     label: str
     color: str
     total: int
-    counts: dict
-    entries: List[HealthEntry]
+    summary: IntelSummary
+    entries: List[IntelEntry]
+    families: List[IntelFamily]
+    actions: List[IntelAction]
     breach_checked: bool
-    note: Optional[str] = None
     breach_allowed: bool = False
+    note: Optional[str] = None
+    generated_at: float
 
 
+class AdvisorIn(Strict):
+    question: str = Field(max_length=300)
+
+
+class AdvisorOut(Model):
+    intent: str
+    answer: str
+    bullets: List[str]
+    refs: List[EntryRef]
+    suggestions: List[str]
+
+
+class SiteSignal(Model):
+    code: str
+    weight: int
+    message: str
+
+
+class SiteCheckOut(Model):
+    url: str
+    domain: str
+    risk: int
+    level: str
+    decision: str
+    reasons: List[str]
+    signals: List[SiteSignal]
+    matches: List[EntryRef]
+    impersonates: List[EntryRef]
+
+
+class TimelineEvent(Model):
+    ts: float
+    kind: str
+    title: str
+    detail: str
+
+
+# ── audit insights ───────────────────────────────────────────────────────
 class Finding(Model):
     severity: str
     kind: str

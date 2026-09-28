@@ -294,14 +294,70 @@ def test_mfa_flow(app, olivia):
 
 
 # ── health & insights ────────────────────────────────────────────────────
-def test_health_endpoint(olivia):
+def seed_intel(olivia):
     vid = personal_id(olivia)
-    for svc in ('A', 'B'):
-        olivia.post(f'/api/vaults/{vid}/entries', json={'service': svc, 'username': 'u', 'password': 'password123'})
-    rep = olivia.get(f'/api/health?vault_id={vid}').json()
-    assert rep['total'] == 2 and rep['counts']['reused'] == 2 and rep['breach_allowed'] is False
-    assert 'password123' not in str(rep)
-    assert olivia.get(f'/api/health?vault_id={vid}&breach=true').json()['breach_checked'] is False   # policy is off
+    for svc, user, pw, url in (('Gmail', 'olivia', 'Kathmandu@2025', 'https://mail.google.com'),
+                               ('Amazon', 'olivia', 'Kathmandu@2026!', 'https://amazon.com'),
+                               ('Nabil Bank', 'olivia', 'xK9#mQ2$vL7@pR4!', 'https://nabilbank.com'),
+                               ('Old forum', 'olivia', 'password123', '')):
+        olivia.post(f'/api/vaults/{vid}/entries', json={'service': svc, 'username': user, 'password': pw, 'url': url})
+    return vid
+
+
+def test_intel_report_endpoint(olivia, app):
+    seed_intel(olivia)
+    r = olivia.get('/api/intel')
+    assert r.status_code == 200
+    rep = r.json()
+    assert rep['total'] == 4 and 0 <= rep['score'] <= 100 and rep['families'] and rep['actions']
+    assert {'accounts', 'reused', 'critical_without_mfa'} <= set(rep['summary'])
+    assert all(e['headline'] and 0 <= e['risk'] <= 100 for e in rep['entries'])
+    for secret in ('Kathmandu', 'password123', 'xK9#mQ2'):
+        assert secret not in r.text
+    assert olivia.get('/api/intel?breach=true').status_code == 400             # switched off by policy
+    assert browser(app).get('/api/intel').status_code == 401
+
+
+def test_intel_quiet_mode_leaves_no_trace(olivia):
+    seed_intel(olivia)
+    olivia.get('/api/intel?quiet=true')
+    assert not [r for r in olivia.get('/api/audit?prefix=intel.').json()]
+    olivia.get('/api/intel')
+    assert len(olivia.get('/api/audit?prefix=intel.').json()) == 1
+
+
+def test_advisor_endpoint(olivia):
+    seed_intel(olivia)
+    a = olivia.post('/api/intel/advisor', json={'question': 'What should I fix today?'}).json()
+    assert a['intent'] == 'fix' and a['bullets'] and a['refs'] and a['suggestions']
+    assert olivia.post('/api/intel/advisor', json={'question': 'x' * 400}).status_code == 422
+    assert 'password123' not in olivia.post('/api/intel/advisor', json={'question': 'any weak passwords?'}).text
+
+
+def test_site_check_endpoint(olivia, app):
+    seed_intel(olivia)
+    ok = olivia.post('/api/tools/site-check', json={'url': 'https://mail.google.com/x'}).json()
+    assert ok['decision'] == 'autofill' and ok['matches'][0]['service'] == 'Gmail'
+    bad = olivia.post('/api/tools/site-check', json={'url': 'https://nabi1bank.com'}).json()
+    assert bad['decision'] == 'block' and bad['impersonates'][0]['service'] == 'Nabil Bank' and bad['risk'] >= 90
+    assert browser(app).post('/api/tools/site-check', json={'url': 'x.com'}).status_code == 401
+
+
+def test_timeline_endpoint(olivia):
+    seed_intel(olivia)
+    olivia.get('/api/intel')
+    events = olivia.get('/api/intel/timeline').json()
+    assert any(e['title'].startswith('First security scan') for e in events)
+    assert all({'ts', 'kind', 'title', 'detail'} <= set(e) for e in events)
+
+
+def test_entry_two_factor_flag_over_http(olivia):
+    vid = personal_id(olivia)
+    eid = olivia.post(f'/api/vaults/{vid}/entries', json={**E1, 'mfa': True}).json()['id']
+    assert olivia.get(f'/api/vaults/{vid}/entries/{eid}').json()['mfa'] is True
+    assert olivia.get(f'/api/vaults/{vid}/entries').json()[0]['mfa'] is True
+    olivia.put(f'/api/vaults/{vid}/entries/{eid}', json={**E1, 'mfa': False})
+    assert olivia.get(f'/api/vaults/{vid}/entries/{eid}').json()['mfa'] is False
 
 
 def test_insights_shape(olivia):

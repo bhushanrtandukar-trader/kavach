@@ -35,17 +35,25 @@ def assess(pw: str, user_inputs=()) -> dict:
     """Pattern-based strength estimate (zxcvbn): dictionary words, keyboard walks, dates,
     l33t substitutions, repeats and sequences are all modelled, unlike a rule checklist.
 
-    Returns {'score': 0-4, 'guesses_log10': float, 'crack_time': str, 'warning': str, 'suggestions': [..]}.
+    Returns {'score': 0-4, 'guesses_log10': float, 'crack_time': str, 'warning': str, 'suggestions': [..],
+             'patterns': [names], 'leet': bool, 'length': int, 'classes': int}.
     """
     pw = (pw or '')[:256]                       # zxcvbn is slow on very long input
     inputs = [s for s in (user_inputs or ()) if s]
     r = zxcvbn(pw, user_inputs=inputs) if pw else None
     if r is None:
-        return {'score': 0, 'guesses_log10': 0.0, 'crack_time': '', 'warning': '', 'suggestions': []}
+        return {'score': 0, 'guesses_log10': 0.0, 'crack_time': '', 'warning': '', 'suggestions': [],
+                'patterns': [], 'leet': False, 'length': 0, 'classes': 0}
     fb = r.get('feedback', {})
+    seq = r.get('sequence', [])
+    classes = sum(bool(x) for x in (any(c.islower() for c in pw), any(c.isupper() for c in pw),
+                                    any(c.isdigit() for c in pw), any(not c.isalnum() for c in pw)))
     return {'score': r['score'], 'guesses_log10': r['guesses_log10'],
             'crack_time': r['crack_times_display']['offline_slow_hashing_1e4_per_second'],
-            'warning': fb.get('warning', ''), 'suggestions': fb.get('suggestions', [])}
+            'warning': fb.get('warning', ''), 'suggestions': fb.get('suggestions', []),
+            'patterns': sorted({m['pattern'] for m in seq}),
+            'leet': any(m.get('l33t') for m in seq if m['pattern'] == 'dictionary'),
+            'length': len(pw), 'classes': classes}
 
 
 _LABELS = {0: ('Very weak', 'danger', 12), 1: ('Weak', 'danger', 30), 2: ('Fair', 'warning', 55),

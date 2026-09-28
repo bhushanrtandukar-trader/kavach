@@ -4,6 +4,7 @@ import os
 from . import crypto
 from .accounts import Accounts
 from .db import Database
+from .intel.service import Intel
 from .sessions import SessionStore
 from .vaults import Vaults
 
@@ -16,3 +17,4 @@ class Core:
         self.server_key = crypto.load_server_key(os.path.join(data_dir, 'server.key'))
         self.accounts = Accounts(self.db, self.sessions, self.server_key)
         self.vaults = Vaults(self.db, self.sessions)
+        self.intel = Intel(self)

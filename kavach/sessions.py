@@ -24,6 +24,7 @@ class Session:
     created: float
     last_activity: float
     vault_keys: dict = field(default_factory=dict)     # vault_id -> (key_version, key)
+    cache: dict = field(default_factory=dict)          # verdict-only analysis results; cleared on any write
 
 
 class SessionStore:
@@ -69,6 +70,7 @@ class SessionStore:
         s = self._sessions.pop(token, None)
         if s:
             s.vault_keys.clear()
+            s.cache.clear()
             s.private_key = b''
 
     def destroy(self, token):

@@ -171,4 +171,4 @@ def test_database_upgrade_from_v1(tmp_path):
     db = Database(str(path))
     with db.read() as c:
         assert 'totp_last_step' in {r[1] for r in c.execute('PRAGMA table_info(users)')}
-        assert c.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0] == '2'
+        assert c.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0] == '3'

@@ -110,12 +110,12 @@ def check_url(url: str) -> list:
     out = []
     try:
         ipaddress.ip_address(host)
-        return [{'level': 'warning', 'message': 'This address is a raw IP number, not a website name.'}]
+        return [{'level': 'warning', 'code': 'raw_ip', 'message': 'This address is a raw IP number, not a website name.'}]
     except ValueError:
         pass
 
     if parts.scheme == 'http':
-        out.append({'level': 'warning', 'message': 'This address is not encrypted (http). Passwords sent to it can be read.'})
+        out.append({'level': 'warning', 'code': 'http', 'message': 'This address is not encrypted (http). Passwords sent to it can be read.'})
 
     uhost = _decode_host(host)
     dom = registrable(uhost)
@@ -132,13 +132,13 @@ def check_url(url: str) -> list:
         close = (len(brand_name) >= 6 and any(edit_distance(s, brand_name) <= 1 for s in skels | {name})
                  and name != brand_name)
         if exact_look or close:
-            out.insert(0, {'level': 'danger',
+            out.insert(0, {'level': 'danger', 'code': 'lookalike',
                            'message': f"This looks like {brands[0]} but is a different site ({dom}). "
                                       "Check the address carefully before saving or using this login."})
             flagged = True
             break
     if not flagged and non_ascii:
-        out.insert(0, {'level': 'warning', 'message': 'The address uses unusual (non-English) letters, which can '
+        out.insert(0, {'level': 'warning', 'code': 'homograph', 'message': 'The address uses unusual (non-English) letters, which can '
                                                       'be used to imitate another site.'})
     if not flagged:
         labels = uhost.replace('-', '.').split('.')
@@ -146,7 +146,7 @@ def check_url(url: str) -> list:
             if len(brand_name) < 5 or name == brand_name:         # same name, other ending: handled below
                 continue
             if brand_name in labels or (len(brand_name) >= 6 and brand_name in name):
-                out.insert(0, {'level': 'warning',
+                out.insert(0, {'level': 'warning', 'code': 'embedded',
                                'message': f"The address contains \"{brand_name}\" but belongs to {dom}, "
                                           f"not {brands[0]}."})
                 flagged = True
@@ -154,7 +154,82 @@ def check_url(url: str) -> list:
     if not flagged:
         for brand_name, brands in _BRAND_SLDS.items():
             if len(brand_name) >= 6 and name == brand_name:
-                out.insert(0, {'level': 'warning',
+                out.insert(0, {'level': 'warning', 'code': 'other_tld',
                                'message': f"Same name as {brands[0]} but a different ending ({dom})."})
                 break
     return out
+
+
+# ── risk assessment (a number, for the autofill decision engine) ─────────────────────────────────
+_WEIGHTS = {'raw_ip': 45, 'lookalike': 80, 'homograph': 45, 'embedded': 60, 'other_tld': 45, 'http': 20,
+            'bad_tld': 15, 'userinfo': 45, 'deep_subdomains': 10, 'long_url': 8, 'many_hyphens': 8,
+            'digit_mix': 6, 'phish_words': 14}
+_BAD_TLDS = {'zip', 'mov', 'top', 'xyz', 'click', 'work', 'gq', 'tk', 'ml', 'cf', 'ga', 'country', 'kim', 'loan',
+             'men', 'party', 'review', 'science', 'stream', 'download', 'racing', 'win', 'bid', 'icu', 'cyou', 'rest'}
+_PHISH_WORDS = ('login', 'signin', 'secure', 'verify', 'verification', 'account', 'update', 'wallet', 'support',
+                'billing', 'password', 'recover', 'unlock', 'confirm', 'security')
+
+
+def host_of(url: str) -> str:
+    try:
+        parts = urlsplit(url if '://' in (url or '') else 'https://' + (url or ''))
+        return (parts.hostname or '').lower().rstrip('.')
+    except ValueError:
+        return ''
+
+
+def assess_url(url: str) -> dict:
+    """Score how much this address looks like a phishing page: {'risk': 0-99, 'signals': [...]}.
+
+    Looks only at the URL text (offline, private). It cannot see domain age, certificates or redirects;
+    those need network lookups this product deliberately does not make."""
+    url = (url or '').strip()
+    host = host_of(url)
+    if not url or not host or host == 'localhost' or host.endswith(('.local', '.test', '.internal', '.localhost')):
+        return {'risk': 0, 'signals': []}
+    signals = [{'code': w.get('code', 'other'), 'weight': _WEIGHTS.get(w.get('code', ''), 30), 'message': w['message']}
+               for w in check_url(url)]
+    try:
+        ipaddress.ip_address(host)
+        return _finish(signals)
+    except ValueError:
+        pass
+    uhost = _decode_host(host)
+    dom = registrable(uhost)
+    known = dom in _BRAND_SET
+    labels = uhost.split('.')
+    tld = labels[-1]
+
+    def add(code, message):
+        signals.append({'code': code, 'weight': _WEIGHTS[code], 'message': message})
+
+    try:
+        authority = urlsplit(url if '://' in url else 'https://' + url).netloc
+        if '@' in authority:
+            add('userinfo', 'The address contains "@": everything before it is ignored by the browser, a '
+                            'common trick to disguise the real site.')
+    except ValueError:
+        pass
+    if not known:
+        if tld in _BAD_TLDS:
+            add('bad_tld', f'".{tld}" is an ending often used for throw-away or malicious sites.')
+        if len(labels) - len(dom.split('.')) >= 3:
+            add('deep_subdomains', 'The address has an unusually long chain of sub-domains.')
+        if uhost.count('-') >= 3:
+            add('many_hyphens', 'The name is stuffed with hyphens, typical of generated look-alike domains.')
+        if sum(c.isdigit() for c in _sld(dom)) >= 3 and any(c.isalpha() for c in _sld(dom)):
+            add('digit_mix', 'The name mixes letters and several digits.')
+        if any(w in uhost for w in _PHISH_WORDS):
+            add('phish_words', 'The address uses words like "login" or "verify" on a site that is not the real one.')
+    if len(url) > 120:
+        add('long_url', 'The address is unusually long.')
+    return _finish(signals)
+
+
+def _finish(signals):
+    keep = 1.0
+    for s in signals:
+        keep *= 1 - s['weight'] / 100
+    risk = min(99, round(100 * (1 - keep)))
+    signals.sort(key=lambda s: -s['weight'])
+    return {'risk': risk, 'signals': signals}
