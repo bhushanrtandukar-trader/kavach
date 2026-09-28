@@ -12,7 +12,7 @@ from vault import Vault, VaultError, WrongPassword, LockedOut, VaultCorrupt
 # Where config.json / passwords.json live. Override with VAULT_DIR to keep
 # them outside the source tree.
 DATA_DIR = os.environ.get('VAULT_DIR') or os.path.dirname(os.path.abspath(__file__))
-APP_NAME = os.environ.get('VAULT_NAME', "Bhushan's Vault")
+APP_NAME = os.environ.get('VAULT_NAME', 'Guptakosh')
 MIN_MASTER_LEN, MIN_SECONDARY_LEN = 12, 8
 
 # Single-user app: one vault, one in-memory session. The key and the decrypted

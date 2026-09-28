@@ -1,4 +1,6 @@
-# Vault
+# Guptakosh
+
+*Guptakosh* (गुप्तकोश) — Sanskrit/Nepali for "hidden treasury".
 
 A small, local, self-hosted password manager built with [Dash](https://dash.plotly.com/).
 Your passwords are encrypted on disk and only ever decrypted in the memory of the
@@ -21,7 +23,7 @@ cannot be opened.**
 | Environment variable | Meaning | Default |
 |---|---|---|
 | `VAULT_DIR`  | Folder holding `config.json` and `passwords.json` | the project folder |
-| `VAULT_NAME` | Name shown in the UI | `Bhushan's Vault` |
+| `VAULT_NAME` | Name shown in the UI | `Guptakosh` |
 
 Keep `VAULT_DIR` outside the source tree if you can.
 
@@ -65,3 +67,7 @@ have confirmed the vault opens.**
 pip install -r requirements-dev.txt
 pytest
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
