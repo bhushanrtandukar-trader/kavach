@@ -8,6 +8,7 @@ from datetime import datetime
 from . import audit, crypto, insights, perms, totp
 from .common import load_actor, who
 from .db import meta_get, meta_set
+from .mail import MailError
 from .errors import (AuthError, Conflict, Forbidden, LockedOut, MfaRequired, NotFound, SessionExpired,
                      ValidationError)
 from .passwords import check_master_password
@@ -20,6 +21,8 @@ DEFAULT_POLICY = {
     'lockout_secs': 300,
     'invite_ttl_hours': 72,
     'breach_check': 0,            # 1 = users may check passwords against HIBP (k-anonymity)
+    'email_alerts': 1,            # 1 = email people about security events on their own account
+    'email_digest': 1,            # 1 = email owners/admins a weekly summary of the audit log
 }
 POLICY_LIMITS = {
     'min_password_length': (8, 128),
@@ -28,6 +31,8 @@ POLICY_LIMITS = {
     'lockout_secs': (30, 86400),
     'invite_ttl_hours': (1, 720),
     'breach_check': (0, 1),
+    'email_alerts': (0, 1),
+    'email_digest': (0, 1),
 }
 USERNAME_RE = re.compile(r'^[a-z0-9][a-z0-9._-]{2,31}$')
 EMAIL_RE = re.compile(r'^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$')
@@ -40,11 +45,22 @@ def _public(row) -> dict:
     return {k: row[k] for k in PUBLIC_USER_FIELDS}
 
 
+class _Silent:
+    """Stands in for the notifier when email is not wired up (unit tests, the legacy importer)."""
+
+    def invite(self, *a, **k):
+        return False
+
+    def alert(self, *a, **k):
+        return False
+
+
 class Accounts:
-    def __init__(self, db, sessions, server_key: bytes):
+    def __init__(self, db, sessions, server_key: bytes, notifier=None):
         self.db = db
         self.sessions = sessions
         self._server_key = server_key
+        self.notifier = notifier or _Silent()
         with db.read() as c:
             self.sessions.idle_timeout = self.policy(c)['idle_timeout_secs']
 
@@ -177,6 +193,16 @@ class Accounts:
             audit.log(c, 'user.invite', who(u), uname, role, s.ip)
             return uid, code
 
+    def send_invite(self, token, user_id, code) -> bool:
+        """Email a freshly issued invite code to the person it is for.  Returns whether it was queued."""
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+            t = self._target(c, u, user_id)
+            hours = self.policy(c)['invite_ttl_hours']
+        if t['status'] != 'invited':
+            return False
+        return self.notifier.invite(t['email'], t['display_name'], t['username'], code, hours, u['display_name'])
+
     def activate(self, username, invite_code, password, ip=''):
         """Redeem an invite: the user chooses their own master password."""
         uname = (username or '').strip().lower()
@@ -218,6 +244,7 @@ class Accounts:
                 c.execute('UPDATE users SET failed_attempts=? WHERE id=?', (attempts, u['id']))
             audit.log(c, 'auth.login_failed', (u['id'], uname), uname, reason, ip)
         if locked:
+            self.notifier.alert('locked', u['email'], u['display_name'], ip=ip, minutes=max(1, round(locked / 60)))
             raise LockedOut(locked)
         raise AuthError(message)
 
@@ -225,7 +252,7 @@ class Accounts:
         return crypto.unseal(self._server_key, crypto.b64d(u['totp_secret']),
                              f"totp:{u['id']}".encode()).decode('ascii')
 
-    def login(self, username, password, ip='', totp_code=None):
+    def login(self, username, password, ip='', totp_code=None, client=''):
         """Returns a session token.  Raises AuthError / LockedOut, or MfaRequired when the password
         was right but the account has two-factor enabled and no code was supplied."""
         uname = (username or '').strip().lower()
@@ -255,10 +282,22 @@ class Accounts:
                 self._fail_login(u, pol, uname, ip, 'wrong or reused 2FA code', 'That code is not correct.')
 
         with self.db.tx() as c:
+            new_address = bool(ip) and self._is_new_address(c, u['id'], ip)
             c.execute('UPDATE users SET failed_attempts=0, locked_until=0, last_login=?, '
                       'totp_last_step=COALESCE(?, totp_last_step) WHERE id=?', (time.time(), step, u['id']))
-            audit.log(c, 'auth.login', (u['id'], uname), uname, '2FA' if step else '', ip)
+            detail = ', '.join(x for x in ('2FA' if step else '', client) if x)
+            audit.log(c, 'auth.login', (u['id'], uname), uname, detail, ip)
+        if new_address:
+            self.notifier.alert('new_signin', u['email'], u['display_name'], ip=ip,
+                                client='the Kavach browser extension' if client == 'extension' else '')
         return self.sessions.create(u['id'], uname, priv, ip).token
+
+    @staticmethod
+    def _is_new_address(c, user_id, ip) -> bool:
+        """True when this person has signed in before, but never from `ip` (a first sign-in is not news)."""
+        row = c.execute("SELECT COUNT(*) AS n, COALESCE(SUM(ip=?), 0) AS same FROM audit "
+                        "WHERE actor_id=? AND action='auth.login'", (ip, user_id)).fetchone()
+        return row['n'] > 0 and row['same'] == 0
 
     def logout(self, token):
         try:
@@ -312,6 +351,24 @@ class Accounts:
                        time.time(), u['id']))
             audit.log(c, 'user.change_password', who(u), u['username'], '', s.ip)
         self.sessions.destroy_user(u['id'], except_token=token)   # sign out other devices
+        self.notifier.alert('password_changed', u['email'], u['display_name'], ip=s.ip)
+
+    def set_email(self, token, password, email):
+        """Change where security email goes.  Needs the master password (a hijacked session must not be able to
+        redirect alerts) and tells the OLD address, so the real owner hears about it."""
+        email = self._valid_email(email)
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+        try:
+            self._open_private_key(u, password or '')
+        except crypto.DecryptError:
+            raise ValidationError('Your password is not correct.') from None
+        if email.lower() == (u['email'] or '').lower():
+            return
+        with self.db.tx() as c:
+            c.execute('UPDATE users SET email=? WHERE id=?', (email, u['id']))
+            audit.log(c, 'user.email_change', who(u), u['username'], '', s.ip)
+        self.notifier.alert('email_changed', u['email'], u['display_name'], ip=s.ip, new_email=email or 'no address')
 
     # ── two-factor authentication ─────────────────────────────────────────
     def totp_begin(self, token):
@@ -335,6 +392,7 @@ class Accounts:
                 raise ValidationError('That code is not correct. Check the time on your phone and try again.')
             c.execute('UPDATE users SET totp_enabled=1, totp_last_step=? WHERE id=?', (step, u['id']))
             audit.log(c, 'user.mfa_enable', who(u), u['username'], '', s.ip)
+        self.notifier.alert('mfa_enabled', u['email'], u['display_name'], ip=s.ip)
 
     def totp_disable(self, token, password, code):
         with self.db.read() as c:
@@ -350,6 +408,7 @@ class Accounts:
         with self.db.tx() as c:
             c.execute('UPDATE users SET totp_secret=NULL, totp_enabled=0, totp_last_step=0 WHERE id=?', (u['id'],))
             audit.log(c, 'user.mfa_disable', who(u), u['username'], '', s.ip)
+        self.notifier.alert('mfa_disabled', u['email'], u['display_name'], ip=s.ip)
 
     def reset_totp(self, token, user_id):
         """Admin: someone lost their phone.  They can sign in with just their password until they
@@ -361,6 +420,7 @@ class Accounts:
                 raise Conflict('Use "turn off" in your own account settings.')
             c.execute('UPDATE users SET totp_secret=NULL, totp_enabled=0, totp_last_step=0 WHERE id=?', (user_id,))
             audit.log(c, 'user.mfa_reset', who(u), t['username'], '', s.ip)
+        self.notifier.alert('mfa_reset', t['email'], t['display_name'])
 
     # ── administration ────────────────────────────────────────────────────
     @staticmethod
@@ -488,6 +548,62 @@ class Accounts:
                 raise Forbidden()
             rows = audit.since(c, now - (history_days + days) * 86400)
         return {'findings': insights.analyze(rows, now, days), 'events_analysed': len(rows), 'days': days}
+
+    # ── email administration ──────────────────────────────────────────────
+    def mail_log(self, token, limit=10):
+        """Recent delivery outcomes (mail.sent / mail.failed), newest first, for the administrator."""
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if not perms.can_manage_policy(u['role']):
+                raise Forbidden()
+            rows = audit.query(c, 'mail.', '', limit, 0)
+        out = []
+        for r in rows:
+            kind, _, error = r['detail'].partition(': ')
+            out.append({'ts': r['ts'], 'ok': r['action'] == 'mail.sent', 'kind': kind, 'to': r['target'],
+                        'error': error})
+        return out
+
+    def test_email(self, token):
+        """Send the administrator a test message inline, so a broken SMTP setup shows its real reason."""
+        with self.db.read() as c:
+            s, u = load_actor(c, self.sessions, token)
+            if not perms.can_manage_policy(u['role']):
+                raise Forbidden()
+        if not u['email']:
+            raise ValidationError('Add an email address to your account first (Account page).')
+        try:
+            self.notifier.test(u['email'], u['display_name'])
+        except MailError as e:
+            with self.db.tx() as c:
+                audit.log(c, 'mail.test_failed', who(u), u['email'], str(e), s.ip)
+            raise ValidationError(str(e)) from None
+        with self.db.tx() as c:
+            audit.log(c, 'mail.test', who(u), u['email'], '', s.ip)
+
+    def digest_recipients(self):
+        """Active owners and administrators who have an email address."""
+        with self.db.read() as c:
+            return [dict(r) for r in c.execute(
+                "SELECT display_name, email FROM users WHERE status='active' AND role IN ('owner','admin') "
+                "AND email != '' ORDER BY username")]
+
+    def digest_data(self, now=None, days=7, history_days=90):
+        """What the weekly email reports.  Built from the audit log and the people list only, so it needs no
+        one to be signed in and never touches a vault."""
+        now = time.time() if now is None else now
+        with self.db.read() as c:
+            rows = audit.since(c, now - (history_days + days) * 86400)
+            audit_ok, bad, _ = audit.verify(c)
+            users = [dict(r) for r in c.execute('SELECT username, status, totp_enabled, invite_expires FROM users')]
+            rotation = c.execute('SELECT COUNT(*) FROM vaults WHERE needs_rotation=1').fetchone()[0]
+        active = [x for x in users if x['status'] == 'active']
+        pending = [x for x in users if x['status'] == 'invited']
+        return {'days': days, 'findings': insights.analyze(rows, now, days), 'active': len(active),
+                'pending_invites': sum(1 for x in pending if (x['invite_expires'] or 0) >= now),
+                'expired_invites': sum(1 for x in pending if (x['invite_expires'] or 0) < now),
+                'no_mfa': sorted(x['username'] for x in active if not x['totp_enabled']),
+                'rotation_pending': rotation, 'audit_ok': audit_ok, 'audit_bad_id': bad}
 
     def verify_audit(self, token):
         with self.db.read() as c:

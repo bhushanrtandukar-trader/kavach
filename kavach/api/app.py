@@ -1,6 +1,8 @@
 """FastAPI application: the JSON API, plus (when built) the static Next.js frontend."""
+import contextlib
 import mimetypes
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -16,6 +18,33 @@ from .routes import router
 FRONTEND_DIR = Path(os.environ.get('KAVACH_FRONTEND_DIR') or Path(__file__).resolve().parents[2] / 'frontend' / 'out')
 
 
+DIGEST_CHECK_SECS = 1800             # how often to ask "is the weekly digest due?"
+
+
+def _digest_loop(core: Core, stop: threading.Event):
+    while not stop.wait(DIGEST_CHECK_SECS):
+        try:
+            core.digest_tick()
+        except Exception:                # a broken mail server must never take the API down
+            pass
+
+
+def _lifespan(app: FastAPI):
+    """While the server runs: a background thread sends the weekly digest; on shutdown, let queued mail finish."""
+    @contextlib.asynccontextmanager
+    async def run(_):
+        core = app.state.core
+        stop = threading.Event()
+        if core.mailer.configured:
+            threading.Thread(target=_digest_loop, args=(core, stop), name='kavach-digest', daemon=True).start()
+        try:
+            yield
+        finally:
+            stop.set()
+            core.mailer.drain(5)
+    return run
+
+
 def _env_flag(name: str) -> bool:
     return os.environ.get(name, '').lower() in ('1', 'true', 'yes', 'on')
 
@@ -26,7 +55,9 @@ def create_app(core: Optional[Core] = None, *, dev: Optional[bool] = None, front
     app = FastAPI(title='Kavach API', version='1.0', docs_url='/api/docs' if dev else None,
                   redoc_url=None, openapi_url='/api/openapi.json' if dev else None)
     app.state.core = core or Core(config.DATA_DIR)
+    app.router.lifespan_context = _lifespan(app)
     app.state.strength_limiter = RateLimiter(60, 60)      # public strength meter: 60 calls / minute / address
+    app.state.mail_test_limiter = RateLimiter(5, 60)      # test emails: 5 / minute / administrator
     app.state.trust_proxy = _env_flag('KAVACH_TRUST_PROXY') if trust_proxy is None else trust_proxy
     app.state.cookie_secure = cookie_secure if cookie_secure is not None else (
         True if _env_flag('KAVACH_COOKIE_SECURE') else None)

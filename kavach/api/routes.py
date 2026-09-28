@@ -97,6 +97,13 @@ def me(token: str = Depends(token_of), core: Core = Depends(get_core)):
     return _me(core, token)
 
 
+@router.put('/me/email', response_model=S.Me, tags=['auth'])
+def set_email(body: S.EmailIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
+    """Where security emails go.  Needs the master password; the old address is told about the change."""
+    core.accounts.set_email(token, body.password, body.email)
+    return _me(core, token)
+
+
 # ══════════════════════════ two-factor ══════════════════════════
 @router.post('/mfa/begin', response_model=S.MfaBegin, tags=['mfa'])
 def mfa_begin(token: str = Depends(token_of), core: Core = Depends(get_core)):
@@ -264,14 +271,16 @@ def users(token: str = Depends(token_of), core: Core = Depends(get_core)):
 @router.post('/users', response_model=S.InviteOut, status_code=201, tags=['admin'])
 def invite(body: S.InviteIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
     uid, code = core.accounts.create_user(token, body.username, body.display_name, body.email, body.role)
+    emailed = body.send_email and core.accounts.send_invite(token, uid, code)
     return S.InviteOut(user_id=uid, username=body.username.strip().lower(), invite_code=code,
-                       valid_hours=core.accounts.get_policy()['invite_ttl_hours'])
+                       valid_hours=core.accounts.get_policy()['invite_ttl_hours'], emailed=emailed)
 
 
 def _invite_out(core, token, user_id, code):
     u = next(x for x in core.accounts.list_users(token) if x['id'] == user_id)
     return S.InviteOut(user_id=user_id, username=u['username'], invite_code=code,
-                       valid_hours=core.accounts.get_policy()['invite_ttl_hours'])
+                       valid_hours=core.accounts.get_policy()['invite_ttl_hours'],
+                       emailed=core.accounts.send_invite(token, user_id, code))
 
 
 @router.patch('/users/{user_id}/role', response_model=S.Ok, tags=['admin'])
@@ -319,6 +328,22 @@ def get_policy(token: str = Depends(token_of), core: Core = Depends(get_core)):
 @router.put('/policy', response_model=S.Policy, tags=['admin'])
 def set_policy(body: S.PolicyIn, token: str = Depends(token_of), core: Core = Depends(get_core)):
     return core.accounts.set_policy(token, {k: v for k, v in body.model_dump().items() if v is not None})
+
+
+@router.get('/mail', response_model=S.MailStatus, tags=['admin'])
+def mail_status(token: str = Depends(token_of), core: Core = Depends(get_core)):
+    """Is outgoing email set up (it is configured through environment variables), and how did recent mail go?"""
+    recent = core.accounts.mail_log(token)
+    m = core.mailer.settings
+    return S.MailStatus(configured=core.mailer.configured, host=m.host, port=m.port, security=m.security,
+                        sender=m.sender, public_url=m.public_url, recent=recent)
+
+
+@router.post('/mail/test', response_model=S.Ok, tags=['admin'])
+def mail_test(request: Request, token: str = Depends(token_of), core: Core = Depends(get_core)):
+    request.app.state.mail_test_limiter.check(core.sessions.get(token, touch=False).user_id)
+    core.accounts.test_email(token)
+    return S.Ok()
 
 
 @router.get('/vaults-overview', response_model=List[S.OverviewVault], tags=['admin'])

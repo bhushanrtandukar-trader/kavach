@@ -358,6 +358,7 @@ class InviteIn(Strict):
     display_name: str = Field('', max_length=80)
     email: str = Field('', max_length=320)
     role: str
+    send_email: bool = True
 
 
 class InviteOut(Model):
@@ -365,6 +366,7 @@ class InviteOut(Model):
     username: str
     invite_code: str
     valid_hours: int
+    emailed: bool = False                  # whether the code was also sent to the person's email address
 
 
 class Policy(Model):
@@ -374,6 +376,8 @@ class Policy(Model):
     lockout_secs: int
     invite_ttl_hours: int
     breach_check: int
+    email_alerts: int
+    email_digest: int
 
 
 class PolicyIn(Strict):
@@ -383,6 +387,31 @@ class PolicyIn(Strict):
     lockout_secs: Optional[int] = None
     invite_ttl_hours: Optional[int] = None
     breach_check: Optional[int] = None
+    email_alerts: Optional[int] = None
+    email_digest: Optional[int] = None
+
+
+class EmailIn(Strict):
+    email: str = Field('', max_length=320)
+    password: str = Field(max_length=256)
+
+
+class MailEvent(Model):
+    ts: float
+    ok: bool
+    kind: str
+    to: str
+    error: str = ''
+
+
+class MailStatus(Model):
+    configured: bool
+    host: str
+    port: int
+    security: str
+    sender: str
+    public_url: str
+    recent: List[MailEvent]
 
 
 class OverviewVault(Model):

@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS audit (
     prev_hash  TEXT NOT NULL,
     hash       TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS audit_actor ON audit(actor_id, action);
 """
 
 
