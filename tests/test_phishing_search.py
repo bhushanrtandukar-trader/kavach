@@ -1,6 +1,6 @@
 import pytest
 
-from guptakosh import phishing, search
+from kavach import phishing, search
 
 
 def levels(url):

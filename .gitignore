@@ -34,9 +34,9 @@ Thumbs.db
 .claude/
 
 # Multi-user database
-guptakosh.db
+kavach.db
 server.key
-guptakosh.db-*
+kavach.db-*
 data/
 
 frontend/openapi.json

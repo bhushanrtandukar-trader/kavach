@@ -37,7 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => setDrawer(false), [pathname]);
 
   if (!me || !status.data) return <Splash />;
-  const title = navItems(me).find((n) => pathname === n.href || pathname === n.href + "/")?.label ?? "Guptakosh";
+  const title = navItems(me).find((n) => pathname === n.href || pathname === n.href + "/")?.label ?? "Kavach";
 
   return (
     <VaultProvider>
@@ -66,7 +66,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
             <h1 className="text-lg font-semibold tracking-tight lg:hidden">{title}</h1>
             <button
-              onClick={() => window.dispatchEvent(new Event("gk:open-palette"))}
+              onClick={() => window.dispatchEvent(new Event("kv:open-palette"))}
               className="glass ml-auto flex h-10 w-full max-w-sm items-center gap-2.5 rounded-xl px-3.5 text-sm text-muted-foreground transition hover:text-foreground lg:ml-0"
             >
               <Search className="size-4" />

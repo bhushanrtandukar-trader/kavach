@@ -123,7 +123,7 @@ export function SidebarBody({ me, orgName, onNavigate }: { me: Me; orgName: stri
             <button
               onClick={() => {
                 router.push("/vaults");
-                setTimeout(() => emit("gk:new-vault"), 60);
+                setTimeout(() => emit("kv:new-vault"), 60);
                 onNavigate?.();
               }}
               aria-label="New shared vault"

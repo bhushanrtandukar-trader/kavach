@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, PasswordInput } from "@/components/ui/input";
 import { VaultDial } from "@/components/vault-dial";
 import { api, ApiError } from "@/lib/api";
+import { BRAND } from "@/lib/brand";
 import { useStatus } from "@/lib/hooks";
 
 type Mode = "signin" | "activate" | "setup";
@@ -287,7 +288,7 @@ export default function LoginPage() {
   const titles: Record<Mode, { h: string; p: string }> = {
     signin: { h: "Welcome back", p: status.data?.org_name ? `Sign in to ${status.data.org_name}` : "Sign in to your vault" },
     activate: { h: "Join your team", p: "Redeem your invite and choose a master password." },
-    setup: { h: "Set up Guptakosh", p: "Create your organisation and its first owner." },
+    setup: { h: "Set up Kavach", p: "Create your organisation and its first owner." },
   };
 
   return (
@@ -300,6 +301,9 @@ export default function LoginPage() {
       <section className="relative z-0 hidden flex-col justify-between p-12 lg:flex">
         <Logo />
         <div className="relative z-10 max-w-[30rem]">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium">
+            <ShieldCheck className="size-3.5 text-primary" /> {BRAND.name} · {BRAND.tagline}
+          </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -311,7 +315,7 @@ export default function LoginPage() {
             <span className="gradient-text">safely shared.</span>
           </motion.h1>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-5 max-w-md text-lg text-muted-foreground">
-            A self-hosted vault for teams: per-vault encryption, real roles, and an audit trail you can trust.
+            {BRAND.pitch}
           </motion.p>
           <ul className="mt-9 space-y-4">
             {FEATURES.map(({ icon: Icon, title, text }, i) => (

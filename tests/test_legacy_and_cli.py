@@ -11,8 +11,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
-from guptakosh.errors import AppError
-from guptakosh.legacy import LegacyError, import_entries, read_legacy_vault
+from kavach.errors import AppError
+from kavach.legacy import LegacyError, import_entries, read_legacy_vault
 
 M, S = 'old master pass', 'old-secondary'
 OLD = [{'service': 'Gmail', 'username': 'a@b.test', 'password': 'pw-1', 'notes': 'n', 'icon': '<span>x</span>'},
@@ -92,7 +92,7 @@ def test_import_reports_unusable_entries(core, owner):
 
 # ── manage.py ─────────────────────────────────────────────────────────────
 def run_cli(data_dir, *args):
-    env = {**os.environ, 'GUPTAKOSH_DATA_DIR': str(data_dir)}
+    env = {**os.environ, 'KAVACH_DATA_DIR': str(data_dir)}
     return subprocess.run([sys.executable, 'manage.py', *args], capture_output=True, text=True, env=env,
                           cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

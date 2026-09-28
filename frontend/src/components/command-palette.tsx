@@ -39,8 +39,8 @@ export function CommandPalette({ me }: { me: Me }) {
   }, []);
   useEffect(() => {
     const h = () => setOpen(true);
-    window.addEventListener("gk:open-palette", h);
-    return () => window.removeEventListener("gk:open-palette", h);
+    window.addEventListener("kv:open-palette", h);
+    return () => window.removeEventListener("kv:open-palette", h);
   }, []);
 
   const hits = useQuery({
@@ -93,7 +93,7 @@ export function CommandPalette({ me }: { me: Me }) {
                           select(h.vault_id);
                           setPendingOpen({ vaultId: h.vault_id, entryId: h.id });
                           router.push("/vaults");
-                          emit("gk:open-entry", { vaultId: h.vault_id, entryId: h.id });
+                          emit("kv:open-entry", { vaultId: h.vault_id, entryId: h.id });
                         })
                       }
                     >
@@ -178,7 +178,7 @@ export function CommandPalette({ me }: { me: Me }) {
                   onSelect={() =>
                     go(() => {
                       router.push("/vaults");
-                      setTimeout(() => emit("gk:new-entry"), 80);
+                      setTimeout(() => emit("kv:new-entry"), 80);
                     })
                   }
                 >
@@ -190,7 +190,7 @@ export function CommandPalette({ me }: { me: Me }) {
                     onSelect={() =>
                       go(() => {
                         router.push("/vaults");
-                        setTimeout(() => emit("gk:new-vault"), 80);
+                        setTimeout(() => emit("kv:new-vault"), 80);
                       })
                     }
                   >

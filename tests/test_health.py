@@ -2,8 +2,8 @@ import time
 
 import pytest
 
-from guptakosh import health
-from guptakosh.errors import AppError, NotFound
+from kavach import health
+from kavach.errors import AppError, NotFound
 from conftest import add_user
 
 NOW = 1_800_000_000

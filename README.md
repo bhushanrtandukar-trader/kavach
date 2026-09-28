@@ -1,6 +1,6 @@
-# Guptakosh
+# Kavach — Security Intelligence
 
-*Guptakosh* (गुप्तकोश) — Sanskrit/Nepali for "hidden treasury".
+*Kavach* (कवच) — Sanskrit/Nepali for "armour".
 
 A self-hosted, multi-user password manager for teams. Every person has their own account and personal
 vault; teams share credentials through shared vaults with fine-grained roles; every sensitive action is
@@ -41,7 +41,7 @@ Everything installs **inside the project** — a Python virtual environment (`.v
 
 ```powershell
 .\scripts\setup.ps1     # once: creates .venv, installs dependencies, builds the web UI
-.\scripts\start.ps1     # runs Guptakosh on http://127.0.0.1:8050
+.\scripts\start.ps1     # runs Kavach on http://127.0.0.1:8050
 ```
 
 Prefer to do it by hand (any OS)?
@@ -50,7 +50,7 @@ Prefer to do it by hand (any OS)?
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt          # Windows: .venv\Scripts\python
 cd frontend && npm ci && npm run build && cd ..
-.venv/bin/python -m guptakosh
+.venv/bin/python -m kavach
 ```
 
 The first visit shows a setup screen: name your organisation and create the first owner. Then use
@@ -69,12 +69,12 @@ The dev server runs on **3100** (not 3000) so it never clashes with other Next.j
 
 | Environment variable | Meaning | Default |
 |---|---|---|
-| `GUPTAKOSH_DATA_DIR` | Where `guptakosh.db` and `server.key` live | `./data` |
-| `GUPTAKOSH_HOST` / `GUPTAKOSH_PORT` | Bind address | `127.0.0.1` / `8050` |
-| `GUPTAKOSH_TRUST_PROXY` | Use `X-Forwarded-For`/`-Proto` from a reverse proxy | off |
-| `GUPTAKOSH_COOKIE_SECURE` | Force the `Secure` flag on the session cookie | auto (on for HTTPS) |
-| `GUPTAKOSH_ALLOWED_ORIGINS` | Extra origins allowed to call the API (comma-separated) | none |
-| `GUPTAKOSH_DEV` | Dev mode: allow `localhost:3100`, serve `/api/docs` | off |
+| `KAVACH_DATA_DIR` | Where `kavach.db` and `server.key` live | `./data` |
+| `KAVACH_HOST` / `KAVACH_PORT` | Bind address | `127.0.0.1` / `8050` |
+| `KAVACH_TRUST_PROXY` | Use `X-Forwarded-For`/`-Proto` from a reverse proxy | off |
+| `KAVACH_COOKIE_SECURE` | Force the `Secure` flag on the session cookie | auto (on for HTTPS) |
+| `KAVACH_ALLOWED_ORIGINS` | Extra origins allowed to call the API (comma-separated) | none |
+| `KAVACH_DEV` | Dev mode: allow `localhost:3100`, serve `/api/docs` | off |
 
 ## Roles
 
@@ -99,16 +99,16 @@ is in it, never what is inside.
 ```
 browser ── Next.js static site (React, TypeScript, Tailwind) ──┐
                                                                 │  JSON over /api, httpOnly session cookie
-FastAPI (guptakosh/api) ── service layer (accounts, vaults, health, insights, …) ── SQLite (WAL)
+FastAPI (kavach/api) ── service layer (accounts, vaults, health, insights, …) ── SQLite (WAL)
 ```
 
-- `guptakosh/` — the tested core: `crypto.py`, `accounts.py`, `vaults.py`, `audit.py`, `health.py`,
+- `kavach/` — the tested core: `crypto.py`, `accounts.py`, `vaults.py`, `audit.py`, `health.py`,
   `insights.py`, `phishing.py`, `search.py`, `totp.py`, …
-- `guptakosh/api/` — thin FastAPI layer: routes, error mapping, CSRF/security-header middleware, and the
+- `kavach/api/` — thin FastAPI layer: routes, error mapping, CSRF/security-header middleware, and the
   static file server for the built interface.
 - `frontend/` — the Next.js app. API types are generated from the backend's OpenAPI schema so the two
   cannot drift.
-- Data is stored in a single SQLite file (`guptakosh.db`, WAL mode, foreign keys enforced).
+- Data is stored in a single SQLite file (`kavach.db`, WAL mode, foreign keys enforced).
 
 ## How the encryption works
 
@@ -136,7 +136,7 @@ FastAPI (guptakosh/api) ── service layer (accounts, vaults, health, insights
   in (this is not end-to-end/zero-knowledge encryption in the browser). Someone with full control of the
   running server process can read unlocked vaults; someone with only the database file cannot.
 - **Run it behind TLS.** The bundled server speaks plain HTTP on `127.0.0.1`. For real use put a reverse
-  proxy with HTTPS in front (set `GUPTAKOSH_TRUST_PROXY=1`) and run a single worker process.
+  proxy with HTTPS in front (set `KAVACH_TRUST_PROXY=1`) and run a single worker process.
 - A forgotten master password is unrecoverable by design. An admin's *Reset access* issues a new invite but
   the user's personal vault is gone; shared vaults are re-shared by their managers.
 - Two-factor seeds are the one secret the server must read, so they are encrypted with `server.key`, kept
@@ -144,7 +144,7 @@ FastAPI (guptakosh/api) ── service layer (accounts, vaults, health, insights
 - The audit log's hash chain detects edits and deletions in the middle of the log. Someone who can rewrite
   the whole database can rewrite the whole chain; forward the log elsewhere if that matters to you.
 - Security insights use the sign-in IP the server sees; behind a reverse proxy that is the proxy's address
-  unless `GUPTAKOSH_TRUST_PROXY` is set.
+  unless `KAVACH_TRUST_PROXY` is set.
 - Failed-login lockout is per account, so someone can deliberately lock a colleague out for a few minutes.
 
 ## Administration

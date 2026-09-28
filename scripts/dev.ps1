@@ -6,7 +6,7 @@ Set-Location $root
 if (-not (Test-Path '.venv\Scripts\python.exe')) { throw 'Run .\scripts\setup.ps1 first.' }
 
 Write-Host '==> Starting the API on http://127.0.0.1:8050 (new window)'
-Start-Process -FilePath "$root\.venv\Scripts\python.exe" -ArgumentList '-m', 'guptakosh.api', '--dev' -WorkingDirectory $root
+Start-Process -FilePath "$root\.venv\Scripts\python.exe" -ArgumentList '-m', 'kavach.api', '--dev' -WorkingDirectory $root
 
 Write-Host '==> Starting the web UI on http://localhost:3100'
 Push-Location frontend

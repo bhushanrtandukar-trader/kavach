@@ -6,8 +6,8 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Guptakosh", template: "%s · Guptakosh" },
-  description: "A self-hosted password vault for teams.",
+  title: { default: "Kavach — Security Intelligence", template: "%s · Kavach" },
+  description: "Self-hosted vault and security intelligence for teams: private, explainable, and prioritised.",
   robots: { index: false, follow: false },
   icons: { icon: "/icon.svg" },
 };

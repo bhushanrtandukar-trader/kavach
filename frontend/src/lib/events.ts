@@ -1,9 +1,9 @@
 /** A tiny typed event bus so distant components (command palette, health page) can ask the vault page to act. */
 export interface GkEvents {
-  "gk:new-entry": undefined;
-  "gk:open-entry": { vaultId: string; entryId: string };
-  "gk:new-vault": undefined;
-  "gk:focus-search": undefined;
+  "kv:new-entry": undefined;
+  "kv:open-entry": { vaultId: string; entryId: string };
+  "kv:new-vault": undefined;
+  "kv:focus-search": undefined;
 }
 
 export function emit<K extends keyof GkEvents>(name: K, detail?: GkEvents[K]) {
@@ -17,20 +17,20 @@ export function on<K extends keyof GkEvents>(name: K, fn: (detail: GkEvents[K]) 
 }
 
 /** Survives a page navigation (used by "Fix" buttons that jump to an entry). */
-const PENDING = "gk:pending-open";
-export function setPendingOpen(v: GkEvents["gk:open-entry"]) {
+const PENDING = "kv:pending-open";
+export function setPendingOpen(v: GkEvents["kv:open-entry"]) {
   try {
     sessionStorage.setItem(PENDING, JSON.stringify(v));
   } catch {
     /* ignore */
   }
 }
-export function takePendingOpen(): GkEvents["gk:open-entry"] | null {
+export function takePendingOpen(): GkEvents["kv:open-entry"] | null {
   try {
     const raw = sessionStorage.getItem(PENDING);
     if (!raw) return null;
     sessionStorage.removeItem(PENDING);
-    return JSON.parse(raw) as GkEvents["gk:open-entry"];
+    return JSON.parse(raw) as GkEvents["kv:open-entry"];
   } catch {
     return null;
   }

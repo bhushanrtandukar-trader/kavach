@@ -22,7 +22,7 @@ def install(app: FastAPI, allowed_origins=()):
         if request.url.path.startswith('/api/') and request.method not in SAFE:
             # The session cookie is SameSite=Strict already; these two checks are defence in depth.
             # A cross-site page cannot set a custom header without a CORS preflight, and we never allow one.
-            if request.headers.get('x-requested-with') != 'guptakosh':
+            if request.headers.get('x-requested-with') != 'kavach':
                 return _deny('Missing request header.')
             origin = request.headers.get('origin')
             if origin:

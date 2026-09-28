@@ -2,11 +2,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from guptakosh import totp
-from guptakosh.api.app import create_app
+from kavach import totp
+from kavach.api.app import create_app
 from conftest import PW
 
-H = {'X-Requested-With': 'guptakosh'}
+H = {'X-Requested-With': 'kavach'}
 E1 = {'service': 'GitHub', 'username': 'ops@acme.test', 'password': 'S3cret-Pass-Word!', 'url': 'https://github.com',
       'notes': 'org admin'}
 
@@ -54,7 +54,7 @@ def make_user(app, owner_client, username, role='member'):
 
 # ── setup / session ──────────────────────────────────────────────────────
 def test_first_run_setup_and_status(tmp_path, site):
-    from guptakosh.core import Core
+    from kavach.core import Core
     app = create_app(Core(str(tmp_path / 'fresh')), frontend_dir=site)
     c = browser(app)
     assert c.get('/api/auth/status').json() == {'initialized': False, 'org_name': '', 'me': None,
@@ -70,8 +70,8 @@ def test_first_run_setup_and_status(tmp_path, site):
 def test_session_cookie_is_httponly_and_samesite_strict(app):
     r = browser(app).post('/api/auth/login', json={'username': 'olivia', 'password': PW})
     cookie = r.headers['set-cookie'].lower()
-    assert 'gk_session=' in cookie and 'httponly' in cookie and 'samesite=strict' in cookie and 'path=/' in cookie
-    assert 'gk_session' not in r.text                       # the token is never in the body
+    assert 'kv_session=' in cookie and 'httponly' in cookie and 'samesite=strict' in cookie and 'path=/' in cookie
+    assert 'kv_session' not in r.text                       # the token is never in the body
 
 
 def test_cookie_marked_secure_over_https(core, site):
@@ -87,16 +87,16 @@ def test_no_cookie_means_401(app):
 
 def test_logout_ends_the_session(app, olivia):
     assert olivia.get('/api/vaults').status_code == 200
-    stolen = olivia.cookies.get('gk_session')
+    stolen = olivia.cookies.get('kv_session')
     assert olivia.post('/api/auth/logout').status_code == 200
     thief = browser(app)
-    thief.cookies.set('gk_session', stolen)
+    thief.cookies.set('kv_session', stolen)
     assert thief.get('/api/vaults').status_code == 401                 # the old token is dead server-side
 
 
 def test_forged_cookie_rejected(app):
     c = browser(app)
-    c.cookies.set('gk_session', 'a' * 43)
+    c.cookies.set('kv_session', 'a' * 43)
     assert c.get('/api/vaults').status_code == 401
 
 
@@ -131,7 +131,7 @@ def test_unknown_api_path_is_json_404(app):
 # ── CSRF & headers ───────────────────────────────────────────────────────
 def test_state_changing_calls_need_the_custom_header(app, olivia):
     bare = TestClient(app)                                  # no X-Requested-With
-    bare.cookies.set('gk_session', olivia.cookies.get('gk_session'))
+    bare.cookies.set('kv_session', olivia.cookies.get('kv_session'))
     r = bare.post('/api/vaults', json={'name': 'Evil'})
     assert r.status_code == 403
     assert bare.get('/api/vaults').status_code == 200        # reads are fine
@@ -287,7 +287,7 @@ def test_mfa_flow(app, olivia):
     fresh = browser(app)
     r = fresh.post('/api/auth/login', json={'username': 'olivia', 'password': PW})
     assert r.status_code == 401 and r.json()['error']['code'] == 'mfa_required'
-    assert 'gk_session' not in fresh.cookies
+    assert 'kv_session' not in fresh.cookies
     import time
     code = totp.code_at(b['secret'], time.time() + 30)
     assert fresh.post('/api/auth/login', json={'username': 'olivia', 'password': PW, 'totp_code': code}).status_code == 200

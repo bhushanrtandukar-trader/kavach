@@ -13,7 +13,7 @@ interface Ctx {
 }
 
 const VaultCtx = createContext<Ctx | null>(null);
-const KEY = "gk:vault";
+const KEY = "kv:vault";
 
 /** Which vault is open. Only an id is remembered (per tab): it is not a secret. */
 export function VaultProvider({ children }: { children: ReactNode }) {

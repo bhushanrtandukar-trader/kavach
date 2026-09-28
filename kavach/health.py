@@ -87,7 +87,7 @@ def sha1_upper(password: str) -> str:
 
 def _fetch_range(prefix: str) -> str:
     req = urllib.request.Request('https://api.pwnedpasswords.com/range/' + prefix,
-                                 headers={'User-Agent': 'Guptakosh-health-check', 'Add-Padding': 'true'})
+                                 headers={'User-Agent': 'Kavach-health-check', 'Add-Padding': 'true'})
     with urllib.request.urlopen(req, timeout=6) as r:
         return r.read().decode('utf-8', 'replace')
 

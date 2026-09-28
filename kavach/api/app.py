@@ -13,7 +13,7 @@ from . import errors, middleware
 from .ratelimit import RateLimiter
 from .routes import router
 
-FRONTEND_DIR = Path(os.environ.get('GUPTAKOSH_FRONTEND_DIR') or Path(__file__).resolve().parents[2] / 'frontend' / 'out')
+FRONTEND_DIR = Path(os.environ.get('KAVACH_FRONTEND_DIR') or Path(__file__).resolve().parents[2] / 'frontend' / 'out')
 
 
 def _env_flag(name: str) -> bool:
@@ -22,16 +22,16 @@ def _env_flag(name: str) -> bool:
 
 def create_app(core: Optional[Core] = None, *, dev: Optional[bool] = None, frontend_dir: Optional[Path] = None,
                trust_proxy: Optional[bool] = None, cookie_secure: Optional[bool] = None) -> FastAPI:
-    dev = _env_flag('GUPTAKOSH_DEV') if dev is None else dev
-    app = FastAPI(title='Guptakosh API', version='1.0', docs_url='/api/docs' if dev else None,
+    dev = _env_flag('KAVACH_DEV') if dev is None else dev
+    app = FastAPI(title='Kavach API', version='1.0', docs_url='/api/docs' if dev else None,
                   redoc_url=None, openapi_url='/api/openapi.json' if dev else None)
     app.state.core = core or Core(config.DATA_DIR)
     app.state.strength_limiter = RateLimiter(60, 60)      # public strength meter: 60 calls / minute / address
-    app.state.trust_proxy = _env_flag('GUPTAKOSH_TRUST_PROXY') if trust_proxy is None else trust_proxy
+    app.state.trust_proxy = _env_flag('KAVACH_TRUST_PROXY') if trust_proxy is None else trust_proxy
     app.state.cookie_secure = cookie_secure if cookie_secure is not None else (
-        True if _env_flag('GUPTAKOSH_COOKIE_SECURE') else None)
+        True if _env_flag('KAVACH_COOKIE_SECURE') else None)
 
-    origins = [o for o in os.environ.get('GUPTAKOSH_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+    origins = [o for o in os.environ.get('KAVACH_ALLOWED_ORIGINS', '').split(',') if o.strip()]
     if dev:                                            # `next dev` on :3100 proxies to us
         origins += ['http://localhost:3100', 'http://127.0.0.1:3100']
     middleware.install(app, origins)
@@ -84,5 +84,5 @@ def _mount_frontend(app: FastAPI, root: Path):
 
 
 def get_app() -> FastAPI:
-    """ASGI factory for `uvicorn guptakosh.api.app:get_app --factory`."""
+    """ASGI factory for `uvicorn kavach.api.app:get_app --factory`."""
     return create_app()

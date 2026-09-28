@@ -3,8 +3,8 @@ import datetime as dt
 
 import pytest
 
-from guptakosh import insights
-from guptakosh.errors import Forbidden
+from kavach import insights
+from kavach.errors import Forbidden
 from conftest import add_user
 
 NOW = dt.datetime(2026, 9, 28, 12, 0, 0).timestamp()
@@ -193,7 +193,7 @@ def test_service_permissions_and_shape(core, owner):
 
 
 def test_service_detects_real_lockout(core, owner):
-    from guptakosh.errors import AuthError, LockedOut
+    from kavach.errors import AuthError, LockedOut
     for _ in range(5):
         with pytest.raises((AuthError, LockedOut)):
             core.accounts.login('olivia', 'wrong-wrong-wrong-1', '203.0.113.7')

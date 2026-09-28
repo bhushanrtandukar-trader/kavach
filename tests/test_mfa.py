@@ -1,7 +1,7 @@
 import pytest
 
-from guptakosh import totp
-from guptakosh.errors import AuthError, Conflict, Forbidden, LockedOut, MfaRequired, ValidationError
+from kavach import totp
+from kavach.errors import AuthError, Conflict, Forbidden, LockedOut, MfaRequired, ValidationError
 from conftest import PW, add_user
 
 RFC_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'          # ASCII "12345678901234567890"
@@ -99,7 +99,7 @@ def test_missing_code_does_not_count_as_failure(core, owner):
 
 def test_secret_is_not_stored_in_plaintext(core, owner, tmp_path):
     secret, _ = core.accounts.totp_begin(owner)
-    blob = b''.join(p.read_bytes() for p in tmp_path.glob('guptakosh.db*'))
+    blob = b''.join(p.read_bytes() for p in tmp_path.glob('kavach.db*'))
     assert secret.encode() not in blob
 
 
@@ -153,7 +153,7 @@ def test_mfa_events_are_audited(core, owner):
 def test_database_upgrade_from_v1(tmp_path):
     """A database created before 2FA existed gains the new column and keeps working."""
     import sqlite3
-    from guptakosh.db import Database
+    from kavach.db import Database
     path = tmp_path / 'old.db'
     conn = sqlite3.connect(path)
     conn.executescript("""

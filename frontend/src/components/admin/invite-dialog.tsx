@@ -23,7 +23,7 @@ export function InviteCard({ invite, orgName }: { invite: Invite; orgName: strin
   const [copied, setCopied] = useState<"code" | "msg" | null>(null);
   const url = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
   const message =
-    `Hi! You've been invited to ${orgName} on Guptakosh.\n\n` +
+    `Hi! You've been invited to ${orgName} on Kavach.\n\n` +
     `1. Open ${url}\n2. Choose "Activate your account"\n3. Username: ${invite.username}\n4. Invite code: ${invite.invite_code}\n\n` +
     `The code works once and expires in ${invite.valid_hours} hours. You'll choose your own master password.`;
 
@@ -121,7 +121,7 @@ export function InviteDialog({ open, onOpenChange, assignable, orgName }: { open
                 <Input value={display} onChange={(e) => setDisplay(e.target.value)} placeholder="Mia Member" />
               </Field>
             </div>
-            <Field label="Email (optional)" hint="Only for your own records; Guptakosh doesn't send email.">
+            <Field label="Email (optional)" hint="Only for your own records; Kavach doesn't send email.">
               <Input icon={<Mail />} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Field label="Role" hint={ROLE_HELP[role]}>

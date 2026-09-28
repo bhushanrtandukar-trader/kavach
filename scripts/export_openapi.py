@@ -6,8 +6,8 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from guptakosh.api.app import create_app  # noqa: E402
-from guptakosh.core import Core  # noqa: E402
+from kavach.api.app import create_app  # noqa: E402
+from kavach.core import Core  # noqa: E402
 
 out = sys.argv[1]
 with tempfile.TemporaryDirectory() as tmp:

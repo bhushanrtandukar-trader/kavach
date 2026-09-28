@@ -127,7 +127,7 @@ class Accounts:
         with self.db.read() as c:
             return c.execute("SELECT 1 FROM users WHERE role='owner' AND status='active'").fetchone() is not None
 
-    def org_name(self, default='Guptakosh') -> str:
+    def org_name(self, default='Kavach') -> str:
         with self.db.read() as c:
             return meta_get(c, 'org_name', default)
 
@@ -323,7 +323,7 @@ class Accounts:
             secret = totp.new_secret()
             enc = crypto.seal(self._server_key, secret.encode('ascii'), f"totp:{u['id']}".encode())
             c.execute('UPDATE users SET totp_secret=? WHERE id=?', (crypto.b64e(enc), u['id']))
-            return secret, totp.provisioning_uri(secret, u['username'], meta_get(c, 'org_name', 'Guptakosh'))
+            return secret, totp.provisioning_uri(secret, u['username'], meta_get(c, 'org_name', 'Kavach'))
 
     def totp_confirm(self, token, code):
         with self.db.tx() as c:

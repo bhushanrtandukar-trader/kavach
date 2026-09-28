@@ -4,7 +4,7 @@ from fastapi import Request, Response
 from ..core import Core
 from ..errors import SessionExpired
 
-COOKIE = 'gk_session'
+COOKIE = 'kv_session'
 
 
 def get_core(request: Request) -> Core:
@@ -19,7 +19,7 @@ def token_of(request: Request) -> str:
 
 
 def client_ip(request: Request) -> str:
-    """The caller's address.  Behind a reverse proxy set GUPTAKOSH_TRUST_PROXY=1 so the first hop of
+    """The caller's address.  Behind a reverse proxy set KAVACH_TRUST_PROXY=1 so the first hop of
     X-Forwarded-For is used; otherwise that header is ignored (it is trivially spoofable)."""
     if getattr(request.app.state, 'trust_proxy', False):
         forwarded = request.headers.get('x-forwarded-for')

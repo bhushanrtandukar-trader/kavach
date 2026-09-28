@@ -50,13 +50,13 @@ async function request<T>(method: string, path: string, body?: Json): Promise<T>
       credentials: "same-origin",
       headers: {
         // Required by the server on every state-changing call (CSRF defence in depth).
-        "X-Requested-With": "guptakosh",
+        "X-Requested-With": "kavach",
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, "network", "Cannot reach the server. Check that Guptakosh is running.");
+    throw new ApiError(0, "network", "Cannot reach the server. Check that Kavach is running.");
   }
   if (!res.ok) {
     let code = "error";

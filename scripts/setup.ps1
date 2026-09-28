@@ -21,4 +21,4 @@ try {
 }
 
 Write-Host ''
-Write-Host 'Done.  Start Guptakosh with:  .\scripts\start.ps1'
+Write-Host 'Done.  Start Kavach with:  .\scripts\start.ps1'

@@ -5,10 +5,10 @@ import time
 import pytest
 
 # The UI module builds its Core at import time; point it at a throwaway directory.
-os.environ['GUPTAKOSH_DATA_DIR'] = tempfile.mkdtemp(prefix='guptakosh-test-')
+os.environ['KAVACH_DATA_DIR'] = tempfile.mkdtemp(prefix='kavach-test-')
 
-from guptakosh import crypto
-from guptakosh.core import Core
+from kavach import crypto
+from kavach.core import Core
 
 PW = 'correct-horse-battery-1'
 

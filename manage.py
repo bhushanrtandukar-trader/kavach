@@ -13,10 +13,10 @@ import shutil
 import sqlite3
 import sys
 
-from guptakosh import audit, config
-from guptakosh.core import Core
-from guptakosh.errors import AppError
-from guptakosh.legacy import import_entries, read_legacy_vault
+from kavach import audit, config
+from kavach.core import Core
+from kavach.errors import AppError
+from kavach.legacy import import_entries, read_legacy_vault
 
 
 def cmd_import_legacy(core, args):
@@ -25,7 +25,7 @@ def cmd_import_legacy(core, args):
     secondary = getpass.getpass('Old secondary password: ')
     entries = read_legacy_vault(args.source, master, secondary)
     print(f'Found {len(entries)} entries.')
-    password = getpass.getpass(f'Guptakosh password for {args.user}: ')
+    password = getpass.getpass(f'Kavach password for {args.user}: ')
     token = core.accounts.login(args.user, password, 'cli')
     try:
         vaults = core.vaults.list_vaults(token)
@@ -86,7 +86,7 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('import-legacy', help='import the old single-user config.json/passwords.json')
     p.add_argument('--from', dest='source', default='.', help='folder holding the old files (default: .)')
-    p.add_argument('--user', required=True, help='Guptakosh username that will own the entries')
+    p.add_argument('--user', required=True, help='Kavach username that will own the entries')
     p.add_argument('--vault', help="target vault name (default: the user's personal vault)")
     p.set_defaults(fn=cmd_import_legacy)
     p = sub.add_parser('backup', help='write a consistent snapshot of the database')

@@ -2,8 +2,8 @@ import string
 
 import pytest
 
-from guptakosh.errors import ValidationError
-from guptakosh.passwords import (SYMBOLS, assess, check_master_password, generate_password,
+from kavach.errors import ValidationError
+from kavach.passwords import (SYMBOLS, assess, check_master_password, generate_password,
                                  password_strength)
 
 

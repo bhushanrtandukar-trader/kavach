@@ -115,11 +115,11 @@ export default function VaultsPage() {
     setSheet({ open: true, entryId: null });
   }, [canWrite]);
 
-  useEffect(() => on("gk:new-entry", openNew), [openNew]);
-  useEffect(() => on("gk:new-vault", () => canCreateVault(me?.role) && setNewVault(true)), [me?.role]);
+  useEffect(() => on("kv:new-entry", openNew), [openNew]);
+  useEffect(() => on("kv:new-vault", () => canCreateVault(me?.role) && setNewVault(true)), [me?.role]);
   useEffect(
     () =>
-      on("gk:open-entry", (d) => {
+      on("kv:open-entry", (d) => {
         select(d.vaultId);
         setSheet({ open: true, entryId: d.entryId });
       }),

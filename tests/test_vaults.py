@@ -1,7 +1,7 @@
 import pytest
 
-from guptakosh import crypto
-from guptakosh.errors import Conflict, Forbidden, NotFound, ValidationError
+from kavach import crypto
+from kavach.errors import Conflict, Forbidden, NotFound, ValidationError
 from conftest import PW, add_user
 
 E1 = {'service': 'GitHub', 'username': 'ops@acme.test', 'password': 'S3cret-Pass-Word!', 'url': 'https://github.com',
@@ -38,7 +38,7 @@ def test_entry_roundtrip_and_passwords_not_listed(core, owner):
 def test_no_plaintext_in_database_files(core, owner, tmp_path):
     vid = personal(core, owner)
     core.vaults.add_entry(owner, vid, {**E1, 'service': 'UniqueServiceName42', 'notes': 'UniqueNote99'})
-    blob = b''.join(p.read_bytes() for p in tmp_path.glob('guptakosh.db*'))
+    blob = b''.join(p.read_bytes() for p in tmp_path.glob('kavach.db*'))
     for needle in (b'UniqueServiceName42', b'UniqueNote99', E1['password'].encode(), PW.encode()):
         assert needle not in blob
 

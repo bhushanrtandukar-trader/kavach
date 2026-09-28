@@ -1,7 +1,7 @@
 import pytest
 
-from guptakosh import perms
-from guptakosh.errors import (AuthError, Conflict, Forbidden, LockedOut, SessionExpired,
+from kavach import perms
+from kavach.errors import (AuthError, Conflict, Forbidden, LockedOut, SessionExpired,
                               ValidationError)
 from conftest import PW, add_user
 
@@ -41,7 +41,7 @@ def test_lockout_and_expiry(core, clock):
 
 
 def test_lockout_is_persistent(core, tmp_path):
-    from guptakosh.core import Core
+    from kavach.core import Core
     for _ in range(5):
         with pytest.raises((AuthError, LockedOut)):
             core.accounts.login('olivia', 'nope-nope-nope-1')

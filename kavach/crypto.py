@@ -30,7 +30,7 @@ from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 SCRYPT = {'n': 2 ** 17, 'r': 8, 'p': 1}          # ~128 MiB, OWASP-recommended
 _KDF_SLOTS = threading.BoundedSemaphore(4)       # bound memory under concurrent logins
-_WRAP_INFO = b'guptakosh/wrap/v1'
+_WRAP_INFO = b'kavach/wrap/v1'
 
 
 class DecryptError(Exception):

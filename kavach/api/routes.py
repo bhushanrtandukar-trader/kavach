@@ -27,7 +27,7 @@ def auth_status(request: Request, core: Core = Depends(get_core)):
     """Public: is the installation set up, and is this browser signed in?"""
     ready = core.accounts.is_initialized()
     me = None
-    token = request.cookies.get('gk_session')
+    token = request.cookies.get('kv_session')
     if ready and token and core.sessions.is_valid(token):
         me = _me(core, token)
     return S.AuthStatus(initialized=ready, org_name=core.accounts.org_name() if ready else '', me=me,
@@ -58,7 +58,7 @@ def activate(body: S.ActivateIn, request: Request, core: Core = Depends(get_core
 
 @router.post('/auth/logout', response_model=S.Ok, tags=['auth'])
 def logout(request: Request, response: Response, core: Core = Depends(get_core)):
-    token = request.cookies.get('gk_session')
+    token = request.cookies.get('kv_session')
     if token:
         core.accounts.logout(token)
     clear_session_cookie(response)
