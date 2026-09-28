@@ -1,6 +1,11 @@
+import os
+import tempfile
 import time
 
 import pytest
+
+# The UI module builds its Core at import time; point it at a throwaway directory.
+os.environ['GUPTAKOSH_DATA_DIR'] = tempfile.mkdtemp(prefix='guptakosh-test-')
 
 from guptakosh import crypto
 from guptakosh.core import Core

@@ -2,66 +2,104 @@
 
 *Guptakosh* (गुप्तकोश) — Sanskrit/Nepali for "hidden treasury".
 
-A small, local, self-hosted password manager built with [Dash](https://dash.plotly.com/).
-Your passwords are encrypted on disk and only ever decrypted in the memory of the
-process you run on your own machine.
+A self-hosted, multi-user password manager for teams, built with Python and
+[Dash](https://dash.plotly.com/). Each person has their own account and personal vault; teams share
+credentials through shared vaults with fine-grained roles; every sensitive action is audited.
 
-> **Status: early / unaudited.** It has not had an independent security review. Use it
-> for learning and personal use, and read the limitations below before relying on it.
+> **Status: early / unaudited.** It has not had an independent security review. Read
+> [Limitations](#limitations) before storing anything you cannot afford to lose.
+
+## Features
+
+- **Accounts and roles** — organisation roles (owner, admin, member, auditor) and per-vault roles
+  (manager, editor, viewer).
+- **Personal and shared vaults** — sharing works with people who are offline; removing someone or
+  disabling their account replaces the vault key.
+- **Invite-only onboarding** — an admin issues a one-time invite code; the new user chooses their own
+  master password, so nobody else ever knows it.
+- **Audit log** — sign-ins, failures, lockouts, membership changes, and every password reveal/copy,
+  in a hash chain so tampering is detectable (UI button and `manage.py verify-audit`).
+- **Policy** — minimum password length, idle timeout, lockout thresholds, invite lifetime.
+- **Password strength** — [zxcvbn](https://github.com/dropbox/zxcvbn) pattern-based scoring for the
+  master password policy and the entry strength meter.
+- **Ops tooling** — `manage.py backup`, `verify-audit`, `import-legacy`.
+
+## Roles
+
+| Organisation role | Can |
+|---|---|
+| **Owner** | Everything: appoint admins/owners, all policy, all people |
+| **Admin** | Invite/disable/reset members and auditors, edit policy, read the audit log, delete vaults |
+| **Member** | Personal vault; create and join shared vaults |
+| **Auditor** | Read the audit log and people list only; no vaults |
+
+| Vault role | Can |
+|---|---|
+| **Manager** | Everything in the vault, including who has access and deleting it |
+| **Editor** | Add, edit, delete entries |
+| **Viewer** | Read and copy passwords |
+
+Being an admin does **not** grant access to anyone's vault contents. Admins see that a vault exists and
+who is in it, never what is inside.
 
 ## Quick start
 
 ```bash
 pip install -r requirements.txt
-python pm.py            # then open http://127.0.0.1:8050
+python -m guptakosh          # then open http://127.0.0.1:8050
 ```
 
-On first run you choose two passwords (a *master* of at least 12 characters and a
-*secondary* of at least 8). **There is no recovery: if you forget them, the vault
-cannot be opened.**
+The first visit shows a setup screen: name your organisation and create the first owner. Then use the
+**Admin** tab to invite colleagues.
 
 | Environment variable | Meaning | Default |
 |---|---|---|
-| `VAULT_DIR`  | Folder holding `config.json` and `passwords.json` | the project folder |
-| `VAULT_NAME` | Name shown in the UI | `Guptakosh` |
+| `GUPTAKOSH_DATA_DIR` | Where `guptakosh.db` lives | `./data` |
+| `GUPTAKOSH_NAME` | Name shown in the UI | `Guptakosh` |
+| `GUPTAKOSH_HOST` / `GUPTAKOSH_PORT` | Bind address | `127.0.0.1` / `8050` |
 
-Keep `VAULT_DIR` outside the source tree if you can.
+### Upgrading from the single-user version
 
-## Security model
+```bash
+python manage.py import-legacy --from /path/to/old/folder --user <your-username>
+```
 
-- **Key derivation:** scrypt (N=2^17, r=8, p=1) over *both* passwords. The secondary
-  password is a real second secret: without it the file cannot be decrypted.
-- **Encryption:** Fernet (AES-128-CBC + HMAC-SHA256, authenticated).
-- **Nothing derived from your passwords is stored.** A login is checked by decrypting a
-  small token, so each offline guess costs a full scrypt run.
-- **Key and plaintext stay on the server process.** The browser holds a random session
-  token, entry names/usernames/notes, and a password only while you have asked to show
-  or copy it.
-- **Lockout and auto-lock are enforced server-side:** 5 wrong logins lock for 5 minutes
-  (a page refresh does not reset it); 5 minutes idle locks the vault and clears the page.
-- Saves are atomic and keep the previous file as `passwords.json.bak`; an unreadable
-  vault is reported instead of being silently replaced with an empty one.
-- Passwords are generated with Python's `secrets` module.
+It asks for the old master and secondary passwords, reads the old `config.json`/`passwords.json`
+(never modifying them) and adds the entries to your personal vault. Delete the old files afterwards.
 
-### Upgrading from the first version
+## How the encryption works
 
-Older vaults (SHA-256 password hashes, master-only key) are detected at login and
-converted automatically. The old files are kept as `config.json.legacy.bak` and
-`passwords.json.legacy.bak`; they contain the old, weaker data, so **delete them once you
-have confirmed the vault opens.**
+- Your **master password** is stretched with scrypt (N=2^17) into a key that protects your private
+  key. Nothing derived from the password is stored; a login is checked by decrypting that key.
+- Every user has an **X25519 key pair**. Every vault has its own random **AES-256-GCM key**, stored once
+  per member, sealed to that member's public key. That is what lets a manager share a vault with someone
+  who is not signed in, and lets admins manage people without being able to read secrets.
+- Entries are encrypted under the vault key with additional authenticated data binding each ciphertext to
+  its entry and vault, so the database cannot swap them around undetected.
+- Removing a member, disabling a user or resetting access **rotates the vault key**.
+
+### Threat model — please read
+
+- The server briefly holds your master password and decrypted keys **in memory** while you are signed
+  in (this is not end-to-end/zero-knowledge encryption in the browser). Someone with full control of the
+  running server process can read unlocked vaults; someone with only the database file cannot.
+- **Run it behind TLS.** The bundled server speaks plain HTTP on `127.0.0.1`. For real use put a
+  reverse proxy with HTTPS in front and a production WSGI server (e.g. `gunicorn guptakosh.app:server`).
+- A forgotten master password is unrecoverable by design. An admin's *Reset access* issues a new invite but
+  the user's personal vault is gone; shared vaults are re-shared by their managers.
+- The audit log's hash chain detects edits and deletions in the middle of the log. Someone who can rewrite
+  the whole database can rewrite the whole chain; forward the log elsewhere if that matters to you.
+- Failed-login lockout is per account, so someone can deliberately lock a colleague out for a few minutes.
 
 ## Limitations
 
-- **Single user, one vault.** There are no per-user accounts, sharing or audit log, so it
-  is not yet suitable for team/company use.
-- Runs on Flask's development server bound to `127.0.0.1`. Do not expose it to a network
-  or the internet, and do not put it behind a proxy without adding TLS and authentication.
-- Anyone who can run code as you on the machine (or read process memory while the vault
-  is unlocked) can read the vault. Clipboard clearing after 30 s is best-effort.
-- The page loads Google Fonts and Font Awesome from CDNs, so your browser contacts those
-  hosts when it opens the app.
+- Sessions live in server memory: restarting the server signs everyone out, and a multi-process
+  deployment needs sticky sessions or a single worker.
+- No email delivery: invite codes are shown once to the admin, who passes them on.
+- No two-factor authentication yet.
+- The page loads Google Fonts and Font Awesome from CDNs, so browsers contact those hosts.
 
-## Tests
+## Development
 
 ```bash
 pip install -r requirements-dev.txt
