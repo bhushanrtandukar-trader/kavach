@@ -1,0 +1,26 @@
+# docker compose up -d --build
+# Then open http://127.0.0.1:8050 and create the first owner account.
+#
+# The port is published on the loopback interface only. To let other people
+# reach it, put a reverse proxy with HTTPS in front (see the README) rather than
+# widening this to 0.0.0.0.
+services:
+  kavach:
+    build: .
+    image: kavach:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8050:8050"
+    volumes:
+      - kavach-data:/data
+    environment:
+      # Uncomment when Kavach sits behind a reverse proxy that sets X-Forwarded-*.
+      # KAVACH_TRUST_PROXY: "1"
+      # KAVACH_PUBLIC_URL: "https://kavach.example.com"
+      # Optional email (invites, alerts): see the Email section of the README.
+      # KAVACH_SMTP_HOST: smtp.example.com
+      # KAVACH_MAIL_FROM: "Kavach <kavach@example.com>"
+      KAVACH_DATA_DIR: /data
+
+volumes:
+  kavach-data:
