@@ -14,6 +14,26 @@ app the same server serves.
 > **Status: early / unaudited.** It has not had an independent security review. Read
 > [Limitations](#limitations) before storing anything you cannot afford to lose.
 
+<p align="center"><img src="docs/screenshots/login-dark.png" alt="Kavach sign-in screen" width="880"></p>
+
+## A look inside
+
+*Screenshots use fictional demo data.*
+
+**Security intelligence** — a score, the reasons behind it, and the few fixes that help most. Dark and light themes:
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-dark.png" alt="Security intelligence dashboard, dark theme" width="49%">
+  <img src="docs/screenshots/dashboard-light.png" alt="Security intelligence dashboard, light theme" width="49%">
+</p>
+
+**Shared vaults** and a tamper-evident **audit log** with insights judged against each person's own baseline:
+
+<p align="center">
+  <img src="docs/screenshots/vaults-dark.png" alt="A vault with its entries" width="49%">
+  <img src="docs/screenshots/audit-dark.png" alt="Audit log and security insights" width="49%">
+</p>
+
 ## Features
 
 - **Accounts and roles** — organisation roles (owner, admin, member, auditor) and per-vault roles
