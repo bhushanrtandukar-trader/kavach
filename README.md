@@ -1,5 +1,8 @@
 # Kavach — Security Intelligence
 
+[![CI](https://github.com/bhushanrtandukar-trader/kavach/actions/workflows/ci.yml/badge.svg)](https://github.com/bhushanrtandukar-trader/kavach/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 *Kavach* (कवच) — Sanskrit/Nepali for "armour".
 
 A self-hosted, multi-user password manager for teams that also tells you **which of your secrets need
@@ -18,7 +21,9 @@ app the same server serves.
 
 ## A look inside
 
-*Screenshots use fictional demo data.*
+*Screenshots and the demo below use fictional data.*
+
+<p align="center"><img src="docs/demo.gif" alt="A short tour: security score, advisor, lookalike-site check, vaults and audit log" width="880"></p>
 
 **Security intelligence** — a score, the reasons behind it, and the few fixes that help most. Dark and light themes:
 
@@ -81,6 +86,17 @@ Everything installs **inside the project** — a Python virtual environment (`.v
 .\scripts\setup.ps1     # once: creates .venv, installs dependencies, builds the web UI
 .\scripts\start.ps1     # runs Kavach on http://127.0.0.1:8050
 ```
+
+### With Docker
+
+```bash
+docker compose up -d --build
+```
+
+Then open <http://127.0.0.1:8050>. The data lives in a named volume (`kavach-data`), and the port is published
+on the loopback interface only. To let other people in, put a reverse proxy with HTTPS in front and set
+`KAVACH_TRUST_PROXY=1` (see the [threat model](#threat-model--please-read)). The image runs as an
+unprivileged user.
 
 Prefer to do it by hand (any OS)?
 
@@ -275,6 +291,17 @@ afterwards.
   Kavach only holds keys while you are signed in.
 - Two-factor is opt-in per user; there is no organisation-wide "require 2FA" setting yet.
 - No password sharing links or attachments yet.
+
+## Security
+
+Kavach has not been independently audited. The design and its trade-offs are in
+[How the encryption works](#how-the-encryption-works); vulnerabilities go through the private channel in
+[SECURITY.md](SECURITY.md), not a public issue.
+
+## Contributing
+
+Bug reports, fixes and reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Release notes are in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Tests
 
