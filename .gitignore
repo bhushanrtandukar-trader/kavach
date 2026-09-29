@@ -41,5 +41,18 @@ kavach.db
 server.key
 kavach.db-*
 data/
+kavach_server.log
 
 frontend/openapi.json
+
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12
+*.sqlite
+*.sqlite3
+*.db
+*.log
