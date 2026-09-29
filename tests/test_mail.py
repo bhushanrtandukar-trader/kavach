@@ -349,6 +349,13 @@ class FakeSmtpServer:
         threading.Thread(target=self._serve, daemon=True).start()
 
     def close(self):
+        import socket
+        # On Linux, close() alone leaves the socket listening while the accept thread is blocked in it, so
+        # shut it down first; Windows refuses shutdown() on a listening socket, which is fine to ignore.
+        try:
+            self.sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
         self.sock.close()
 
     def _serve(self):
